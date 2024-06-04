@@ -26,7 +26,7 @@ $(function() {
                 '</div>',
                 '<div id="emailform"></div>',
                 '<div id="dialog-popupwarning" style="display: none" title="' + html.title(_("Warning")) + '">',
-                '<p>' + html.error(controller.person.POPUPWARNING) + '</p>',
+                '<p>' + html.error(html.lf_to_br(controller.person.POPUPWARNING)) + '</p>',
                 '</div>'
             ].join("\n");
         },
@@ -801,7 +801,7 @@ $(function() {
                     email: email,
                     logtypes: controller.logtypes,
                     personid: controller.person.ID,
-                    templates: controller.templates
+                    templates: controller.templatesemail
                 });
             });
 

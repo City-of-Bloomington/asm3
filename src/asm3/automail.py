@@ -62,12 +62,15 @@ def _valid_template(dbo: Database, dtid: int) -> bool:
     return True
 
 def _adopter_followup_query(dbo: Database, cutoff: datetime) -> Results:
+    followupspecies = asm3.configuration.email_adopter_followup_species(dbo)
     return dbo.query("SELECT m.ID, m.OwnerID, o.EmailAddress " \
         "FROM adoption m " \
         "INNER JOIN animal a ON a.ID = m.AnimalID " \
         "INNER JOIN owner o ON o.ID = m.OwnerID " \
         "WHERE m.MovementType=1 AND m.MovementDate=? AND " \
-        "a.DeceasedDate Is Null AND m.ReturnDate Is Null ORDER BY m.ID", [ cutoff ])
+        "a.DeceasedDate Is Null AND m.ReturnDate Is Null AND " \
+        f"a.SpeciesID IN ({followupspecies}) " \
+        "ORDER BY m.ID", [ cutoff ])
 
 def adopter_followup(dbo: Database, user = "system") -> None:
     """
@@ -204,10 +207,12 @@ def fosterer_weekly(dbo: Database, user = "system") -> None:
     activefosterers = _fosterer_weekly_activefosterers(dbo)
     asm3.al.debug("%d active fosterers found" % len(activefosterers), "automail.fosterer_weekly", dbo)
 
-    def p(l, s):
-        l.append("<p>%s</p>" % s)
     def pb(l, s):
         l.append("<p><b>%s</b></p>" % s)
+    def br(l, s):
+        l.append("%s<br>" % s)
+    def brb(l, s):
+        l.append("<b>%s</b><br>" % s)
 
     for f in activefosterers:
         lines = [ ]
@@ -221,41 +226,47 @@ def fosterer_weekly(dbo: Database, user = "system") -> None:
         hasmedicaldue = False
         for a in animals:
             pb(lines, "%s - %s" % (a.ANIMALNAME, a.SHELTERCODE) )
-            p(lines, asm3.i18n._("{0} {1} {2} aged {3}", l).format(a.SEX, a.BREEDNAME, a.SPECIESNAME, a.ANIMALAGE))
-            lines.append("<br/>")
-            p(lines, asm3.i18n._("Fostered to {0} since {1}", l).format( f.OWNERNAME, asm3.i18n.python2display(l, a.MOVEMENTDATE) ))
+            lines.append("<p>")
+            br(lines, asm3.i18n._("{0} {1} {2} aged {3}", l).format(a.SEX, a.BREEDNAME, a.SPECIESNAME, a.ANIMALAGE))
+            br(lines, asm3.i18n._("Fostered to {0} since {1}", l).format( f.OWNERNAME, asm3.i18n.python2display(l, a.MOVEMENTDATE) ))
             
             if a.DATEOFBIRTH < dbo.today(offset=-182) and a.NEUTERED == 0 and a.SPECIESID in (1, 2):
-                pb(lines, asm3.i18n._("WARNING: This animal is over 6 months old and has not been neutered/spayed", l))
+                brb(lines, asm3.i18n._("WARNING: This animal is over 6 months old and has not been neutered/spayed", l))
 
             if a.IDENTICHIPPED == 0 or (a.IDENTICHIPPED == 1 and a.IDENTICHIPNUMBER == "") and a.SPECIESID in (1, 2):
-                pb(lines, asm3.i18n._("WARNING: This animal has not been microchipped", l))
+                brb(lines, asm3.i18n._("WARNING: This animal has not been microchipped", l))
+            lines.append("</p>")
 
             overdue = asm3.medical.get_combined_due(dbo, a.ANIMALID, dbo.today(offset=overduedays), dbo.today(offset=-1))
             if len(overdue) > 0:
                 hasmedicaldue = True
                 pb(lines, asm3.i18n._("Overdue medical items", l))
+                lines.append("<p>")
                 for m in overdue:
-                    p(lines, "{0}: {1} {2} {3}/{4} {5}".format( asm3.i18n.python2display(l, m.DATEREQUIRED), \
+                    br(lines, "{0}: {1} {2} {3}/{4} {5}".format( asm3.i18n.python2display(l, m.DATEREQUIRED), \
                         m.TREATMENTNAME, m.DOSAGE, m.TREATMENTNUMBER, m.TOTALTREATMENTS, m.COMMENTS ))
-                lines.append("<hr/>")
+                lines.append("</p>")
 
             nextdue = asm3.medical.get_combined_due(dbo, a.ANIMALID, dbo.today(), dbo.today(offset=7))
             if len(nextdue) > 0:
                 hasmedicaldue = True
                 pb(lines, asm3.i18n._("Upcoming medical items", l))
+                lines.append("<p>")
                 for m in nextdue:
-                    p(lines, "{0}: {1} {2} {3}/{4} {5}".format( asm3.i18n.python2display(l, m.DATEREQUIRED), \
+                    br(lines, "{0}: {1} {2} {3}/{4} {5}".format( asm3.i18n.python2display(l, m.DATEREQUIRED), \
                         m.TREATMENTNAME, m.DOSAGE, m.TREATMENTNUMBER, m.TOTALTREATMENTS, m.COMMENTS ))
-                lines.append("<hr/>")
+                lines.append("</p>")
 
             clinics = asm3.clinic.get_animal_appointments_due(dbo, a.ANIMALID, dbo.today(), dbo.today(offset=7))
             if len(clinics) > 0:
                 hasmedicaldue = True
                 pb(lines, asm3.i18n._("Upcoming clinic appointments", l))
+                lines.append("<p>")
                 for c in clinics:
-                    p(lines, "{0}: {1} {2}".format( asm3.i18n.python2displaytime(l, c.DATETIME), c.APPTFOR, c.REASONFORAPPOINTMENT ))
-                lines.append("<hr/>")
+                    br(lines, "{0}: {1} {2}".format( asm3.i18n.python2displaytime(l, c.DATETIME), c.APPTFOR, c.REASONFORAPPOINTMENT ))
+                lines.append("</p>")
+            
+            lines.append("<hr>") # separate each animal
 
         # Email is complete, send to the fosterer (assuming there were some animals to send)
         if len(animals) > 0:

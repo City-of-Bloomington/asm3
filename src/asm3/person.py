@@ -106,7 +106,7 @@ def embellish_latest_movement(dbo: Database, p: ResultRow) -> ResultRow:
         order, MAX(ID) will fail and return the wrong movement. """
     if p is None: return p
     lm = dbo.first_row(dbo.query("SELECT m.ID AS LatestMoveAnimalID, a.ID AS LatestMoveAnimalID, a.AnimalName AS LatestMoveAnimalName, " \
-        "a.ShelterCode AS LatestMoveShelterCode, mt.MovementType AS LatestMoveTypeName " \
+        "a.ShelterCode AS LatestMoveShelterCode, a.DeceasedDate AS LatestMoveDeceasedDate, mt.MovementType AS LatestMoveTypeName " \
         "FROM adoption m "
         "INNER JOIN animal a ON m.AnimalID = a.ID " \
         "INNER JOIN lksmovementtype mt ON mt.ID = m.MovementType " \
@@ -116,6 +116,7 @@ def embellish_latest_movement(dbo: Database, p: ResultRow) -> ResultRow:
         p.LATESTMOVEANIMALID = lm.LATESTMOVEANIMALID
         p.LATESTMOVEANIMALNAME = lm.LATESTMOVEANIMALNAME
         p.LATESTMOVESHELTERCODE = lm.LATESTMOVESHELTERCODE
+        p.LATESTMOVEDECEASEDDATE = lm.LATESTMOVEDECEASEDDATE
         p.LATESTMOVETYPENAME = lm.LATESTMOVETYPENAME
     return p
 
@@ -124,7 +125,7 @@ def get_homechecked(dbo: Database, personid: int) -> Results:
     Returns a list of people homechecked by personid
     """
     return dbo.query("SELECT ID, OwnerName, DateLastHomeChecked, Comments FROM owner " \
-        "WHERE HomeCheckedBy = ?", [personid])
+        "WHERE HomeCheckedBy = ? ORDER BY DateLastHomeChecked DESC", [personid])
 
 def get_person_similar(dbo: Database, email: str = "", mobile: str = "", surname: str = "", forenames: str = "", address: str = "", 
                        siteid: int = 0, checkcouple: bool = False, checkmobilehome: bool = False, checkforenames: bool = True) -> Results:
@@ -457,7 +458,7 @@ def get_links(dbo: Database, pid: int) -> Results:
         "WHERE CurrentVetID = %d " % (linkdisplay, animalextra, int(pid))
     # Altering Vet
     sql += "UNION SELECT 'AV' AS TYPE, " \
-        "'' AS TYPEDISPLAY, a.DateBroughtIn AS DDATE, a.ID AS LINKID, " \
+        "'' AS TYPEDISPLAY, a.NeuteredDate AS DDATE, a.ID AS LINKID, " \
         "%s AS LINKDISPLAY, " \
         "%s AS FIELD2, " \
         "CASE WHEN a.DeceasedDate Is Not Null THEN 'D' ELSE '' END AS DMOD " \
@@ -466,7 +467,7 @@ def get_links(dbo: Database, pid: int) -> Results:
         "INNER JOIN species s ON s.ID = a.SpeciesID " \
         "LEFT OUTER JOIN internallocation il ON il.ID = a.ShelterLocation " \
         "LEFT OUTER JOIN deathreason dr ON dr.ID = a.PTSReasonID " \
-        "WHERE NeuteredByVetID = %d " % (linkdisplay, animalextra, int(pid))
+        "WHERE NeuteredByVetID = %d AND NeuteredDate Is Not Null " % (linkdisplay, animalextra, int(pid))
     # Waiting List
     sql += "UNION SELECT 'WL' AS TYPE, " \
         "'' AS TYPEDISPLAY, a.DatePutOnList AS DDATE, a.ID AS LINKID, " \
@@ -646,6 +647,7 @@ def get_person_find_advanced(dbo: Database, criteria: Dict[str, str], includeSta
        postcode - string partial pattern
        phone - string partial pattern
        jurisdiction - -1 for all or jurisdiction
+       site - -1 for all or site
        homecheck - string partial pattern
        comments - string partial pattern
        email - string partial pattern
@@ -666,6 +668,7 @@ def get_person_find_advanced(dbo: Database, criteria: Dict[str, str], includeSta
     ss.add_str("postcode", "o.OwnerPostcode")
     ss.add_phone_quintuplet("phone", "o.HomeTelephone", "o.WorkTelephone", "o.MobileTelephone", "o.WorkTelephone2", "o.MobileTelephone2")
     ss.add_id("jurisdiction", "o.JurisdictionID")
+    ss.add_id("site", "o.SiteID")
     ss.add_str_pair("email", "o.EmailAddress", "o.EmailAddress2")
     ss.add_words("homecheck", "o.HomeCheckAreas")
     ss.add_words("comments", "o.Comments")
@@ -718,7 +721,7 @@ def get_person_find_advanced(dbo: Database, criteria: Dict[str, str], includeSta
             afid = asm3.utils.atoi(k)
             ilike = dbo.sql_ilike("Value", "?")
             ss.ands.append(f"EXISTS (SELECT Value FROM additional WHERE LinkID=o.ID AND AdditionalFieldID={afid} AND {ilike})")
-            ss.values.append( "%%%s%%" % v.lower() )
+            ss.values.append( "%%%s%%" % v.strip().lower() )
 
     if len(ss.ands) == 0:
         sql = get_person_query(dbo) + " ORDER BY o.OwnerName"
@@ -1284,6 +1287,21 @@ def merge_flags(dbo: Database, username: str, personid: int, flags: str) -> str:
     update_flags(dbo, username, personid, merged)
     return "|".join(merged) + "|"
 
+def calc_readable_flags(flags: str) -> str:
+    """
+    Given the ADDITIONALFLAGS field, returns a readable/comma separated list
+    """
+    fgs = []
+    if flags is None or flags == "": 
+        return ""
+    elif flags.find("|") != -1: 
+        fgs = flags.split("|")
+    elif flags.find(",") != -1: 
+        fgs = flags.split(",")
+    return ", ".join(list(dict.fromkeys( [x for x in fgs if x != "" ] )))
+    # set produces unordered results, where dictionaries from python3.7 onwards retain the order
+    # return ", ".join(set([x for x in fgs if x != ""]))
+
 def merge_person(dbo: Database, username: str, personid: int, mergepersonid: int) -> None:
     """
     Reparents all satellite records of mergepersonid onto
@@ -1526,7 +1544,7 @@ def delete_person(dbo: Database, username: str, personid: int) -> None:
     dbo.delete("diary", "LinkID=%d AND LinkType=%d" % (personid, asm3.diary.PERSON), username)
     dbo.delete("log", "LinkID=%d AND LinkType=%d" % (personid, asm3.log.PERSON), username)
     dbo.execute("DELETE FROM additional WHERE LinkID = %d AND LinkType IN (%s)" % (personid, asm3.additional.PERSON_IN))
-    for t in [ "adoption", "clinicappointment", "ownercitation", "ownerdonation", "ownerlicence", "ownertraploan", "ownervoucher" ]:
+    for t in [ "adoption", "clinicappointment", "ownercitation", "ownerdonation", "ownerinvestigation", "ownerlicence", "ownerrota", "ownertraploan", "ownervoucher" ]:
         dbo.delete(t, "OwnerID=%d" % personid, username)
     dbo.delete("owner", personid, username)
     # asm3.dbfs.delete_path(dbo, "/owner/%d" % personid) # Use maint_db_delete_orphaned_media to remove dbfs later if needed
@@ -1861,7 +1879,8 @@ def update_check_flags(dbo: Database) -> str:
         "fosterer": "IsFosterer",
         "retailer": "IsRetailer",
         "vet": "IsVet",
-        "giftaid": "IsGiftAid"
+        "giftaid": "IsGiftAid",
+        "sponsor": "IsSponsor"
     }
     people = dbo.query("SELECT ID, AdditionalFlags, ExcludeFromBulkEmail, IDCheck, IsBanned, IsDangerous, IsVolunteer, " \
         "IsHomeChecker, IsMember, IsAdopter, IsAdoptionCoordinator, IsDonor, IsDriver, " \
@@ -1976,23 +1995,23 @@ def update_anonymise_personal_data(dbo: Database, years: int = None, username: s
         asm3.al.debug("set to retain personal data indefinitely, abandoning.", "person.update_anonymise_personal_data", dbo)
         return
     cutoff = dbo.today(offset = -365 * retainyears)
-    affected = dbo.execute("UPDATE owner SET OwnerTitle = '', OwnerInitials = '', OwnerForeNames = '', " \
-        "OwnerSurname = ?, OwnerName = ?, OwnerAddress = '', EmailAddress = '', " \
-        "HomeTelephone = '', WorkTelephone = '', MobileTelephone = '', " \
-        "LastChangedDate = ?, LastChangedBy = ? " \
-        "WHERE OwnerSurname <> ? AND CreatedDate <= ? " \
+    affected = dbo.execute_named_params("UPDATE owner SET OwnerTitle = '', OwnerInitials = '', OwnerForeNames = '', " \
+        "OwnerSurname = :anonymised, OwnerSurname2 = :anonymised, OwnerName = :anonymised, OwnerAddress = '', EmailAddress = '', " \
+        "HomeTelephone = '', WorkTelephone = '', MobileTelephone = '', EmailAddress2 = '', WorkTelephone2 = '', MobileTelephone2 = '', " \
+        "LastChangedDate = :now, LastChangedBy = :username " \
+        "WHERE OwnerSurname <> :anonymised AND CreatedDate <= :cutoff " \
         "AND IsACO=0 AND IsAdoptionCoordinator=0 AND IsRetailer=0 AND IsHomeChecker=0 AND IsMember=0 AND IsDriver=0 " \
         f"AND IsShelter=0 AND IsFosterer=0 AND IsStaff=0 AND IsVet=0 AND IsVolunteer=0 {adopterclause} " \
-        "AND NOT EXISTS(SELECT ID FROM animal WHERE (OriginalOwnerID = owner.ID OR BroughtInByOwnerID = owner.ID) AND DateBroughtIn > ?) " \
-        "AND NOT EXISTS(SELECT ID FROM animalboarding WHERE OwnerID = owner.ID AND OutDateTime > ?) " \
-        "AND NOT EXISTS(SELECT ID FROM animalcontrol WHERE (CallerID = owner.ID OR VictimID = owner.ID OR OwnerID = owner.ID OR Owner2ID = owner.ID OR Owner3ID = owner.ID) AND IncidentDateTime > ?) " \
-        "AND NOT EXISTS(SELECT ID FROM clinicappointment WHERE OwnerID = owner.ID AND DateTime > ?) " \
-        "AND NOT EXISTS(SELECT ID FROM ownerdonation WHERE OwnerID = owner.ID AND Date > ?) " \
-        "AND NOT EXISTS(SELECT ID FROM ownerlicence WHERE OwnerID = owner.ID AND IssueDate > ?) " \
-        "AND NOT EXISTS(SELECT ID FROM ownervoucher WHERE OwnerID = owner.ID AND DateIssued > ?) " \
-        "AND NOT EXISTS(SELECT ID FROM adoption WHERE OwnerID = owner.ID AND MovementDate > ?) " \
-        "AND NOT EXISTS(SELECT ID FROM log WHERE LinkID = owner.ID AND LinkType = 1 AND Date > ?) ", 
-        ( anonymised, anonymised, dbo.now(), username, anonymised, cutoff, cutoff, cutoff, cutoff, cutoff, cutoff, cutoff, cutoff, cutoff, cutoff ))
+        "AND NOT EXISTS(SELECT ID FROM animal WHERE (OriginalOwnerID = owner.ID OR BroughtInByOwnerID = owner.ID) AND DateBroughtIn > :cutoff) " \
+        "AND NOT EXISTS(SELECT ID FROM animalboarding WHERE OwnerID = owner.ID AND OutDateTime > :cutoff) " \
+        "AND NOT EXISTS(SELECT ID FROM animalcontrol WHERE (CallerID = owner.ID OR VictimID = owner.ID OR OwnerID = owner.ID OR Owner2ID = owner.ID OR Owner3ID = owner.ID) AND IncidentDateTime > :cutoff) " \
+        "AND NOT EXISTS(SELECT ID FROM clinicappointment WHERE OwnerID = owner.ID AND DateTime > :cutoff) " \
+        "AND NOT EXISTS(SELECT ID FROM ownerdonation WHERE OwnerID = owner.ID AND Date > :cutoff) " \
+        "AND NOT EXISTS(SELECT ID FROM ownerlicence WHERE OwnerID = owner.ID AND IssueDate > :cutoff) " \
+        "AND NOT EXISTS(SELECT ID FROM ownervoucher WHERE OwnerID = owner.ID AND DateIssued > :cutoff) " \
+        "AND NOT EXISTS(SELECT ID FROM adoption WHERE OwnerID = owner.ID AND MovementDate > :cutoff) " \
+        "AND NOT EXISTS(SELECT ID FROM log WHERE LinkID = owner.ID AND LinkType = 1 AND Date > :cutoff) ", 
+        { "anonymised": anonymised, "now": dbo.now(), "username": username, "cutoff": cutoff })
     asm3.al.debug("anonymised %s expired person records outside of retention period (%s years)." % (affected, retainyears), "person.update_anonymise_personal_data", dbo)
     return "OK %d" % affected
 

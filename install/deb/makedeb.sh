@@ -27,7 +27,7 @@ cp ../../README.md sheltermanager3/usr/share/doc/sheltermanager3
 cp ../../scripts/asm3.conf.example sheltermanager3/etc/asm3.conf
 
 # Add apache config
-echo "WSGIScriptAlias /asm3 /usr/lib/sheltermanager3/code.py/
+echo "WSGIScriptAlias /asm3 /usr/lib/sheltermanager3/main.py/
 Alias /asm3/static /usr/lib/sheltermanager3/static
 <Directory /usr/lib/sheltermanager3>
     Require all granted
@@ -51,7 +51,7 @@ echo "/var/log/asm3.log
 }" > sheltermanager3/etc/logrotate.d/asm3
 
 # Add our repository to the list file
-echo "deb [trusted=yes] http://public.sheltermanager.com/deb/ ./" > sheltermanager3/etc/apt/sources.list.d/sheltermanager3.list
+echo "deb [trusted=yes] https://public.sheltermanager.com/deb/ ./" > sheltermanager3/etc/apt/sources.list.d/sheltermanager3.list
 
 # Generate the control file
 #echo "Generating control file..."
@@ -61,8 +61,8 @@ Section: contrib
 Priority: optional
 Architecture: all
 Essential: no
-Depends: debconf, memcached, libapache2-mod-wsgi-py3, python3-cheroot, python3-pil, python3-memcache, python3-requests, python3-mysqldb, python3-psycopg2, python3-reportlab, python3-xhtml2pdf
-Suggests: mysql-server, imagemagick, wkhtmltopdf
+Depends: debconf, memcached, libapache2-mod-wsgi-py3, python3-cheroot, python3-pil, python3-memcache, python3-requests, python3-mysqldb, python3-psycopg2, python3-reportlab, python3-xhtml2pdf, python3-lxml
+Suggests: mysql-server, imagemagick, wkhtmltopdf, python3-stripe, python3-boto, python3-openpyxl, python3-qrcode
 Installed-Size: `du -s -k sheltermanager3 | awk '{print$1}'`
 Maintainer: ASM Team [info@sheltermanager.com]
 Provides: sheltermanager3
@@ -74,7 +74,7 @@ Description: Web-based management solution for animal shelters and sanctuaries
 # Generate the sheltermanager3.cron.daily script
 echo "#!/bin/sh
 cd /usr/lib/sheltermanager3
-python3 cron.py all
+python3 cron.py all 2>/dev/null
 " > sheltermanager3/etc/cron.daily/sheltermanager3
 chmod +x sheltermanager3/etc/cron.daily/sheltermanager3
 

@@ -12,7 +12,7 @@ of truncated at 8 chars as with the DBF variants
 
 Will also look in PATH/images/ANIMALKEY.[jpg|JPG] for animal photos if IMAGE_FILE_IMPORT is set.
 
-6th Oct, 2014 - 5th September, 2023
+6th Oct, 2014 - 14th April, 2024
 """
 
 """
@@ -34,21 +34,22 @@ UPDATE animalcontrol SET IncidentCompletedID = 29 WHERE IncidentCompletedID = 4;
 UPDATE animalcontrol SET IncidentTypeID = 35 WHERE IncidentTypeID = 5;
 """
 
-PATH = "/home/robin/tmp/asm3_import_data/shelterpro_mg3031"
+PATH = "/home/robin/tmp/asm3_import_data/shelterpro_fw3159"
 
-START_ID = 500
+START_ID = 100000
 
 BITE_IMPORT = True
 INCIDENT_IMPORT = True
-LICENCE_IMPORT = False
+LICENCE_IMPORT = True
 IMAGE_FILE_IMPORT = False
-IMAGE_TABLE_IMPORT = False
+IMAGE_TABLE_IMPORT = True
 PAYMENT_IMPORT = True
 MEDICAL_IMPORT = True
 VACCINATION_IMPORT = True
 
 IMPORT_ANIMALS_WITH_NO_NAME = True      # Some people like these filtered out. They'll come through with name (unknown)
-FAKE_ADOPTION_ONSHELTER_DAYS = 0        # Animals on shelter longer than this many days will have a fake adoption, 0 to do nothing
+IMPORT_INCIDENTS_WITH_NO_DATE = False   # rather than ending up with a timeline full of closed incidents on conversion day, filter them out
+FAKE_ADOPTION_ONSHELTER_DAYS = 0        # Animals on shelter longer than this many days will have a fake adoption, -1 to do nothing
 
 def gettype(animaldes):
     spmap = {
@@ -148,17 +149,19 @@ if PAYMENT_IMPORT: asm.setid("ownerdonation", START_ID)
 
 # Remove existing
 print("\\set ON_ERROR_STOP\nBEGIN TRANSACTION;")
-print("DELETE FROM adoption WHERE ID >= %d AND CreatedBy = 'conversion';" % START_ID)
-print("DELETE FROM animal WHERE ID >= %d AND CreatedBy = 'conversion';" % START_ID)
-print("DELETE FROM log WHERE ID >= %d AND CreatedBy = 'conversion';" % START_ID)
-print("DELETE FROM owner WHERE ID >= %d AND CreatedBy = 'conversion';" % START_ID)
-if INCIDENT_IMPORT: print("DELETE FROM animalcontrol WHERE ID >= %d AND CreatedBy = 'conversion';" % START_ID)
-if VACCINATION_IMPORT: print("DELETE FROM animalvaccination WHERE ID >= %d AND CreatedBy = 'conversion';" % START_ID)
+print("DELETE FROM adoption WHERE ID >= %d AND CreatedBy LIKE 'conversion%%';" % START_ID)
+print("DELETE FROM animal WHERE ID >= %d AND CreatedBy LIKE 'conversion%%';" % START_ID)
+print("DELETE FROM log WHERE ID >= %d AND CreatedBy LIKE 'conversion%%';" % START_ID)
+print("DELETE FROM owner WHERE ID >= %d AND CreatedBy LIKE 'conversion%%';" % START_ID)
+if INCIDENT_IMPORT: 
+    print("DELETE FROM animalcontrol WHERE ID >= %d AND CreatedBy LIKE 'conversion%%';" % START_ID)
+    print("DELETE FROM animalcontrolanimal WHERE AnimalControlID >= %d;" % START_ID)
+if VACCINATION_IMPORT: print("DELETE FROM animalvaccination WHERE ID >= %d AND CreatedBy LIKE 'conversion%%';" % START_ID)
 if MEDICAL_IMPORT:
-    print("DELETE FROM animalmedical WHERE ID >= %d AND CreatedBy = 'conversion';" % START_ID)
-    print("DELETE FROM animalmedicaltreatment WHERE ID >= %d AND CreatedBy = 'conversion';" % START_ID)
-if LICENCE_IMPORT: print("DELETE FROM ownerlicence WHERE ID >= %d AND CreatedBy = 'conversion';" % START_ID)
-if PAYMENT_IMPORT: print("DELETE FROM ownerdonation WHERE ID >= %d AND CreatedBy = 'conversion';" % START_ID)
+    print("DELETE FROM animalmedical WHERE ID >= %d AND CreatedBy LIKE 'conversion%%';" % START_ID)
+    print("DELETE FROM animalmedicaltreatment WHERE ID >= %d AND CreatedBy LIKE 'conversion%%';" % START_ID)
+if LICENCE_IMPORT: print("DELETE FROM ownerlicence WHERE ID >= %d AND CreatedBy LIKE 'conversion%%';" % START_ID)
+if PAYMENT_IMPORT: print("DELETE FROM ownerdonation WHERE ID >= %d AND CreatedBy LIKE 'conversion%%';" % START_ID)
 if IMAGE_FILE_IMPORT or IMAGE_TABLE_IMPORT: print("DELETE FROM media WHERE ID >= %d;" % START_ID)
 if IMAGE_FILE_IMPORT or IMAGE_TABLE_IMPORT: print("DELETE FROM dbfs WHERE ID >= %d;" % START_ID)
 
@@ -196,9 +199,14 @@ for row in cperson:
     owners.append(o)
     ppo[row["PERSONKEY"]] = o
     ppoid[o.ID] = o
-    o.OwnerForeNames = asm.strip(row["FNAME"]).title()
-    o.OwnerSurname = asm.strip(row["LNAME"]).title()
-    o.OwnerName = o.OwnerTitle + " " + o.OwnerForeNames + " " + o.OwnerSurname
+    if row["NAME"] != "" and (row["FNAME"] == "" and row["LNAME"] == ""):
+        o.OwnerSurname = row["NAME"].title()
+        o.OwnerName = o.OwnerSurname
+        o.OwnerType = 2 # Organization
+    else:
+        o.OwnerForeNames = asm.strip(row["FNAME"]).title()
+        o.OwnerSurname = asm.strip(row["LNAME"]).title()
+        o.OwnerName = o.OwnerForeNames + " " + o.OwnerSurname
     # Find the address
     if row["PERSONKEY"] in addrlink:
         addrkey = addrlink[row["PERSONKEY"]]
@@ -324,10 +332,11 @@ for row in cshelter:
     a.ShortCode = asm.strip(row["ANIMALKEY"])
     a.ShelterLocationUnit = asm.strip(row["KENNEL"])
     a.NonShelterAnimal = 0
+    a.OriginalOwnerID = 0 
+    if row["PERSPREVOWNR"] in ppo:
+        a.OriginalOwnerID = ppo[row["PERSPREVOWNR"]]
     if arivdate is not None:
         a.DateBroughtIn = arivdate
-        a.LastChangedDate = a.DateBroughtIn
-        a.CreatedDate = a.DateBroughtIn
         a.generateCode(gettypeletter(a.AnimalTypeID))
         a.ShortCode = asm.strip(row["ANIMALKEY"])
         setuserfields(row, a)
@@ -345,6 +354,7 @@ for row in cshelter:
         if a.AnimalTypeID == 2: a.AnimalTypeID = 10
         if a.AnimalTypeID == 11: a.AnimalTypeID = 12
         a.EntryReasonID = 7
+        a.EntryTypeID = 2
         setuserfields(row, a)
 
     # Adoptions
@@ -468,12 +478,15 @@ if LICENCE_IMPORT:
 if INCIDENT_IMPORT:
     cincident = asm.csv_to_list("%s/incident.csv" % PATH, uppercasekeys=True, strip=True)
     for row in cincident:
+        calldate = getdate(row["DATETIMEASSIGNED"]) or getdate(row["DATETIMEORIGINATION"])
+        if calldate is None: 
+            if IMPORT_INCIDENTS_WITH_NO_DATE: 
+                calldate = asm.today()
+            else:
+                continue
         ac = asm.AnimalControl()
         animalcontrol.append(ac)
         ppi[row["INCIDENTKEY"]] = ac
-        calldate = getdate(row["DATETIMEASSIGNED"])
-        if calldate is None: calldate = getdate(row["DATETIMEORIGINATION"])
-        if calldate is None: calldate = asm.now()
         ac.CallDateTime = calldate
         ac.IncidentDateTime = calldate
         ac.DispatchDateTime = calldate
@@ -497,6 +510,14 @@ if INCIDENT_IMPORT:
         ac.CallNotes = comments
         ac.Sex = 2
         setuserfields(row, ac)
+    animlink = asm.csv_to_list("%s/animlink.csv" % PATH, uppercasekeys=True, strip=True)
+    for row in animlink:
+        if row["EVENTTYPE"] == "10":
+            if row["ANIMALKEY"] not in ppa: continue
+            if row["EVENTKEY"] not in ppi: continue
+            ac = ppi[row["EVENTKEY"]]
+            a = ppa[row["ANIMALKEY"]]
+            asm.incident_animal(ac.ID, a.ID)
 
 # Incidents
 if BITE_IMPORT:
@@ -655,7 +676,7 @@ if MEDICAL_IMPORT:
 
 # Run back through the animals, if we have any that are still
 # on shelter after 2 years, add an adoption to an unknown owner
-if FAKE_ADOPTION_ONSHELTER_DAYS > 0:
+if FAKE_ADOPTION_ONSHELTER_DAYS >= 0:
     asm.adopt_older_than(animals, movements, uo.ID, FAKE_ADOPTION_ONSHELTER_DAYS)
 
 # Now that everything else is done, output stored records

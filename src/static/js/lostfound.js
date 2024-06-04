@@ -14,6 +14,7 @@ $(function() {
             this.mode = mode;
             return [
                 '<div id="emailform"></div>',
+                microchip.render_checkresults_dialog(),
                 '<div id="button-document-body" class="asm-menu-body">',
                 '<ul class="asm-menu-list">',
                 edit_header.template_list(controller.templates, ( mode == "lost" ? "LOSTANIMAL" : "FOUNDANIMAL" ), controller.animal.ID),
@@ -340,8 +341,6 @@ $(function() {
         },
 
         // Only show the breeds for the selected species
-        // If the species has no breeds the species name is shown
-        // again.
         updatebreedselect: function() {
             $('optgroup', $('#breed')).remove();
             $('#breedp optgroup').clone().appendTo($('#breed'));
@@ -351,9 +350,6 @@ $(function() {
                     $(this).remove();
                 }
             });
-            if($('#breed option').length == 0) {
-                $('#breed').append("<option value='1'>"+$('#species option:selected').text()+"</option>");
-            }
         },
 
         sync: function() {

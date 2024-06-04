@@ -1,0 +1,73 @@
+Payment Breakdown By Date with Type and Method Totals
+###
+Financial
+###
+34204/Any rev02
+###
+All payments in a given date period, with payment types, methods and totals
+###
+en
+###
+$VAR from DATE Enter from date$
+$VAR to DATE Enter to date$
+
+SELECT ownerdonation.Date, owner.OwnerName, owner.ID AS OID, donationtype.DonationName, 
+Donation AS amt, Quantity, owner.OwnerAddress, owner.OwnerTown, owner.OwnerCounty, 
+owner.OwnerPostcode, donationpayment.PaymentName, ownerdonation.ReceiptNumber, 
+ownerdonation.ChequeNumber, ownerdonation.Comments,
+'$@from$' AS FromDate, '$@to$' AS ToDate
+FROM ownerdonation 
+INNER JOIN owner ON ownerdonation.OwnerID = owner.ID 
+INNER JOIN donationpayment ON donationpayment.ID = ownerdonation.DonationPaymentID
+INNER JOIN donationtype ON donationtype.ID = ownerdonation.DonationTypeID 
+WHERE ownerdonation.Date BETWEEN '$@from$' AND '$@to$' 
+ORDER BY ownerdonation.Date, donationtype.DonationName, donationpayment.PaymentName
+###
+$$HEADER
+
+<table border="1">
+<thead>
+<tr>
+<th><b>Date</b></th>
+<th><b>Payee Information</b></th>
+<th><b>Payment Method</b></th>  
+<th><b>Check Number</b></th>
+<th><b>Amount</b></th>
+<th><b>Payment Type</b></th>
+<th><b>Comments</b></th>
+</tr>
+</thead>
+<tbody>
+HEADER$$
+  
+$$BODY
+<tr>
+<td>$date</td>
+<td><a target="_blank" href="person?id=$OID">$OWNERNAME</a>
+<br/>$OWNERADDRESS<br/>$OWNERTOWN<br/>$OWNERCOUNTY<br/>$OWNERPOSTCODE</td>
+<td>$PAYMENTNAME</td>
+<td>$CHEQUENUMBER</td>  
+<td>$AMT</td>
+<td>$DONATIONNAME</td>
+<td>$COMMENTS</td>
+</tr>
+BODY$$
+
+$$FOOTER
+</tbody>
+</table>
+
+<h2>Total: {SUM.AMT}</h2>
+
+<div style='display:inline-block;'>
+<div style='display:inline-block;'>
+<h3>Payment Type</h3>  
+{SUBREPORT.SUBREPORT_PaymentTypeTotals.FromDate.ToDate}
+</div>
+<div style='display:inline-block; margin-left: 50px;'>
+<h3>Payment Method</h3>    
+{SUBREPORT.SUBREPORT_PaymentMethodTotals.FromDate.ToDate}
+</div>
+</div>
+<p>&nbsp;</p>
+FOOTER$$

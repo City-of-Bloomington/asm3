@@ -29,13 +29,13 @@ $(function() {
                 '</td>',
                 '</tr>',
                 '<tr>',
-                '<td colspan="2">',
-                '<label for="puttosleep">' + _("Euthanized") + '</label>',
+                '<td></td>',
+                '<td>',
                 '<input class="asm-checkbox" type="checkbox" id="puttosleep" data-json="PUTTOSLEEP" data-post="puttosleep" />',
-                '<label for="deadonarrival">' + _("Dead on arrival") + '</label>',
+                '<label for="puttosleep">' + _("Euthanized") + '</label>',
+                '<br>',
                 '<input class="asm-checkbox" type="checkbox" id="deadonarrival" data-json="ISDOA" data-post="deadonarrival" />',
-                '<label for="asilomarownerrequested" class="asilomar ownereuth">' + "Owner requested euthanasia" + '</label>',
-                '<input class="asm-checkbox asilomar ownereuth" type="checkbox" id="asilomarownerrequested" data-json="ASILOMAROWNERREQUESTEDEUTHANASIA" data-post="asilomarownerrequested" />',
+                '<label for="deadonarrival">' + _("Dead on arrival") + '</label>',
                 '</td>',
                 '</tr>',
                 '</table>',
@@ -287,6 +287,12 @@ $(function() {
                 '<input id="timebroughtin" data-json="DATEBROUGHTIN" data-post="timebroughtin" class="asm-textbox asm-timebox" />',
                 '</td>',
                 '</tr>',
+                '<tr id="entrytyperow">',
+                '<td><label for="entrytype">' + _("Entry Type") + '</label></td>',
+                '<td><select id="entrytype" data-json="ENTRYTYPEID" data-post="entrytype" class="asm-selectbox">',
+                html.list_to_options(controller.entrytypes, "ID", "ENTRYTYPENAME"),
+                '</select></td>',
+                '</tr>',
                 '<tr id="entryreasonrow">',
                 '<td><label for="entryreason">' + _("Entry Category") + '</label></td>',
                 '<td><select id="entryreason" data-json="ENTRYREASONID" data-post="entryreason" class="asm-selectbox">',
@@ -311,16 +317,16 @@ $(function() {
                 '<tr id="transferinrow">',
                 '<td></td>',
                 '<td>',
-                '<input class="asm-checkbox" type="checkbox" id="transferin" data-json="ISTRANSFER" data-post="transferin" />',
+                '<input class="asm-checkbox" type="checkbox" id="transferin" data-json="ISTRANSFER" />',
                 '<label for="transferin">' + _("Transfer In") + '</label>',
                 '</td>',
                 '</tr>',
                 '<tr class="asilomar">',
                 '<td></td>',
                 '<td>',
-                '<input class="asm-checkbox" type="checkbox" id="asilomartransferexternal" data-json="ASILOMARISTRANSFEREXTERNAL" data-post="asilomartransferexternal" title=',
-                '"' + html.title("This animal was transferred in from outside the community/coalition") + '" />',
-                '<label for="asilomartransferexternal">' + "Outside community/coalition" + '</label>',
+                '<input class="asm-checkbox" type="checkbox" id="asilomartransferexternal" data-json="ASILOMARISTRANSFEREXTERNAL" data-post="asilomartransferexternal" />',
+                '<label for="asilomartransferexternal">Transfer from outside community/coalition ',
+                '</label>',
                 '</td>',
                 '</tr>',
                 '<tr id="pickeduprow">',
@@ -416,12 +422,12 @@ $(function() {
                 '<thead>',
                 '<tr>',
                 '<th>' + _("Date") + '</th>',
+                '<th>' + _("Type") + '</th>',
                 '<th>' + _("Code") + '</th>',
                 '<th>' + _("Category") + '</th>',
                 '<th>' + _("Coordinator") + '</th>',
                 '<th>' + _("By") + '</th>',
                 '<th>' + _("Owner") + '</th>',
-                '<th>' + _("Transfer In") + '</th>',
                 '<th>' + _("Hold") + '</th>',
                 '<th>' + _("Pickup") + '</th>',
                 '<th class="asilomar">' + _("Asilomar") + '</th>',
@@ -435,12 +441,12 @@ $(function() {
                 h.push('<td><span class="nowrap">');
                 h.push('<button type="button" class="deleteentryhistory" data-id="' + v.ID + '">' + _("Delete") + '</button>');
                 h.push(format.date(v.ENTRYDATE) + '</span></td>');
+                h.push('<td>' + v.ENTRYTYPENAME + (v.ASILOMARISTRANSFEREXTERNAL == 1 ? _('External') : '') + '</td>');
                 h.push('<td>' + v.SHELTERCODE + '</td>');
                 h.push('<td>' + v.ENTRYREASONNAME + '</td>');
                 h.push('<td>' + html.person_link(v.ADOPTIONCOORDINATORID, v.COORDINATOROWNERNAME) + '</td>');
                 h.push('<td>' + html.person_link(v.BROUGHTINBYOWNERID, v.BROUGHTINBYOWNERNAME) + '</td>');
                 h.push('<td>' + html.person_link(v.ORIGINALOWNERID, v.ORIGINALOWNERNAME) + '</td>');
-                h.push('<td>' + (v.ISTRANSFER == 1 ? _('Yes') : '') + ' ' + (v.ASILOMARISTRANSFEREXTERNAL == 1 ? _('External') : '') + '</td>');
                 h.push('<td>' + format.date(v.HOLDUNTILDATE) + '</td>');
                 h.push('<td>' + (v.ISPICKUP == 1 ? v.PICKUPLOCATIONNAME + ' ' + v.PICKUPADDRESS : '') + '</td>');
                 h.push('<td class="asilomar">' + asilomar_categories[v.ASILOMARINTAKECATEGORY] + '</td>');
@@ -816,7 +822,7 @@ $(function() {
                 else if (p == "akcreunite") { t = html.icon("microchip") + " Microchip registered with AKC Reunite"; }
                 else if (p == "buddyid") { t = html.icon("microchip") + " Microchip registered with BuddyID"; }
                 else if (p == "homeagain") { t = html.icon("microchip") + " Microchip registered with HomeAgain"; }
-                else if (p == "foundanimals") { t = html.icon("microchip") + " Microchip registered with FoundAnimals"; }
+                else if (p == "foundanimals") { t = html.icon("microchip") + " Microchip registered with Found/24Pet"; }
 
                 else if (p == "shareweb") { t = html.icon("web") + " " + _("Shared weblink"); }
                 else if (p == "shareemail") { t = html.icon("email") + " " + _("Shared email"); }
@@ -864,7 +870,7 @@ $(function() {
                 '</div>',
                 '<div id="emailform"></div>',
                 '<div id="dialog-popupwarning" style="display: none" title="' + html.title(_("Warning")) + '">',
-                '<p>' + html.error(controller.animal.POPUPWARNING) + '</p>',
+                '<p>' + html.error(html.lf_to_br(controller.animal.POPUPWARNING)) + '</p>',
                 '</div>',
                 '<div id="dialog-merge" style="display: none" title="' + html.title(_("Select animal to merge")) + '">',
                 '<div class="ui-state-highlight ui-corner-all" style="margin-top: 20px; padding: 0 .7em">',
@@ -872,6 +878,7 @@ $(function() {
                 _("Select an animal to merge into this record. The selected animal will be removed, and their movements, diary notes, log entries, etc. will be reattached to this record."),
                 '</p>',
                 '</div>',
+                microchip.render_checkresults_dialog(),
                 html.capture_autofocus(),
                 '<table width="100%">',
                 '<tr>',
@@ -943,9 +950,11 @@ $(function() {
             return h;
         },
 
-        /* Update the breed selects to only show the breeds for the selected species.
-         * If no breeds are available the species will be displayed.
-         * */
+        /**
+         * Update the breed selects to only show the breeds for the selected species.
+         * If the species is not in the list of CrossbreedSpecies, hides the crossbreed/second species.
+         * If there are no breeds for the species, includes a blank option with ID 0
+         */
         update_breed_list: function() {
             $('optgroup', $('#breed1')).remove();
             $('#breedp optgroup').clone().appendTo($('#breed1'));
@@ -955,7 +964,8 @@ $(function() {
                 }
             });
             if($('#breed1 option').length == 0) {
-                $('#breed1').append("<option value='0'>"+$('#species option:selected').text() + "</option>");
+                $('#breed1').append("<option value='0'></option>");
+                //$('#breed1').append("<option value='0'>"+$('#species option:selected').text() + "</option>");
             }
             $('optgroup', $('#breed2')).remove();
             $('#breedp optgroup').clone().appendTo($('#breed2'));
@@ -965,8 +975,34 @@ $(function() {
                 }
             });
             if ($('#breed2 option').length == 0) {
-                $('#breed2').append("<option value='0'>"+$('#species option:selected').text()+"</option>");
+                $('#breed2').append("<option value='0'></option>");
             }
+            if (controller.animal.CROSSBREED == 1 ||
+                (common.array_in($("#species").val(), config.str("CrossbreedSpecies").split(",")) && !config.bool("UseSingleBreedField"))) {
+                $("#secondbreedrow").show();
+            }
+            else {
+                $("#secondbreedrow").hide();
+                $("#crossbreed").prop("checked", false);
+            }
+        },
+
+        // Set the entry type based on the other field values if it has been disabled
+        update_entry_type: function() {
+            if (!config.bool("DontShowEntryType")) { return; }
+            let reasonname = common.get_field(controller.entryreasons, $("#entryreason").select("value"), "REASONNAME").toLowerCase();
+            let entrytype = 1; //surrender
+            if ($("#deadonarrival").is(":checked")) { entrytype = 9; } // dead on arrival
+            else if ($("#dateofbirth").val() == $("#datebroughtin").val()) { entrytype = 5; } // born in shelter
+            else if ($("#crueltycase").is(":checked")) { entrytype = 7; } // seized
+            else if ($("#transferin").is(":checked")) { entrytype = 3; } // transfer in
+            else if (reasonname.indexOf("transfer") != -1) { entrytype = 3; } // transfer in
+            else if (reasonname.indexOf("born") != -1) { entrytype = 5; } // born in shelter
+            else if (reasonname.indexOf("stray") != -1) { entrytype = 2; } // stray
+            else if (reasonname.indexOf("tnr") != -1) { entrytype = 4; } // tnr
+            else if (reasonname.indexOf("wildlife") != -1) { entrytype = 6; } // wildlife
+            else if (reasonname.indexOf("abandoned") != -1) { entrytype = 8; } // abandoned
+            $("#entrytype").select("value", entrytype);
         },
 
         // Update the units available for the selected location
@@ -1029,8 +1065,9 @@ $(function() {
             }
 
             // If we're a US shelter and this is a cat or a dog, show the asilomar categories
-            if (asm.locale == "en" && !config.bool("DisableAsilomar") &&
-                ($("#species").select("value") == 1 || $("#species").select("value") == 2) ) {
+            if (!config.bool("DisableAsilomar") &&
+                (asm.locale == "en") &&
+                ($("#species").select("value") == 1 || $("#species").select("value") == 2)) {
                 $(".asilomar").show();
             }
             else {
@@ -1059,7 +1096,7 @@ $(function() {
                 $("label[for='broughtinby']").html(_("Picked Up By")); 
                 $("#broughtinby").personchooser("set_filter", "aco");
             }
-            else if ($("#transferin").is(":checked")) { 
+            else if ($("#entrytype").val() == 3) { 
                 $("label[for='broughtinby']").html(_("Transferred From")); 
                 $("#broughtinby").personchooser("set_filter", "shelter");
             }
@@ -1069,7 +1106,7 @@ $(function() {
             }
 
             // Change the Original Owner text if this record is non-shelter
-            if ($("#flags option[value='nonshelter']").is(":selected")) {
+            if (controller.animal.NONSHELTERANIMAL == 1) {
                 $("label[for='originalowner']").html(_("Owner"));
             }
             else {
@@ -1101,8 +1138,8 @@ $(function() {
             }
 
             // If the animal is non-shelter, don't show the location, 
-            // transfer/pickup, brought in by owner, bonded with, reasons or asilomar
-            if ($("#flags option[value='nonshelter']").is(":selected")) {
+            // pickup, brought in by owner, bonded with, type, reasons or asilomar
+            if (controller.animal.NONSHELTERANIMAL == 1) {
                 $("#lastlocation").hide();
                 $("#locationrow").hide();
                 $("#locationunitrow").hide();
@@ -1112,7 +1149,6 @@ $(function() {
                     $("#datebroughtinrow").hide();
                     $("#timebroughtinrow").hide();
                 } 
-                $("#transferinrow").hide();
                 $("#pickeduprow").hide();
                 $("#holdrow").hide();
                 $("#coordinatorrow").hide();
@@ -1122,6 +1158,8 @@ $(function() {
                 $("#bondedwith1row").hide();
                 $("#bondedwith2row").hide();
                 $("#entryreasonrow").hide();
+                $("#entrytyperow").hide();
+                $("#transferinrow").hide();
                 $("#reasonforentryrow").hide();
                 $("#reasonnotfromownerrow").hide();
                 $(".asilomar").hide();
@@ -1132,13 +1170,6 @@ $(function() {
                 $("#lastlocation").hide();
                 $("#locationrow").show();
                 $("#locationunitrow").show();
-            }
-
-            // Still show the owner requested euth field for non-shelter animals
-            if (asm.locale == "en" && !config.bool("DisableAsilomar") &&
-                ($("#species").select("value") == 1 || $("#species").select("value") == 2) &&
-                $("#flags option[value='nonshelter']").is(":selected")) {
-                $(".ownereuth").show();
             }
 
             // If the animal has an exit movement, show the owner field
@@ -1237,6 +1268,18 @@ $(function() {
             if (config.bool("DontShowAdoptionFee")) { $("#feerow").hide(); }
             if (config.bool("DontShowAdoptionCoordinator")) { $("#coordinatorrow").hide(); }
             if (config.bool("DontShowCoatType")) { $("#coattyperow").hide(); }
+            // entry type/transfer in are hidden for non-shelter animals anyway, so only show
+            // either if this isn't a non-shelter animal
+            if (controller.animal.NONSHELTERANIMAL == 0) {
+                if (config.bool("DontShowEntryType")) {
+                    $("#entrytyperow").hide(); 
+                    $("#transferinrow").show(); 
+                } 
+                else { 
+                    $("#entrytyperow").show();
+                    $("#transferinrow").hide(); 
+                }
+            }
             if (config.bool("DontShowJurisdiction")) { $("#jurisdictionrow").hide(); }
             if (config.bool("DontShowSize")) { $("#sizerow").hide(); }
             if (config.bool("DontShowWeight")) { $("#kilosrow, #poundsrow").hide(); }
@@ -1464,6 +1507,11 @@ $(function() {
                 animal.update_breed_list();
             });
 
+            // Changing various fields that guess the entry category
+            $("#entryreason, #transferin, #datebroughtin, #dateofbirth, #deadonarrival").change(function() {
+                animal.update_entry_type();
+            });
+
             // Changing the location updates the unit autocomplete and clears the unit
             $("#location").change(function() {
                 $("#unit").val("");
@@ -1557,24 +1605,25 @@ $(function() {
             $("#hold").click(hold_change).keyup(hold_change);
 
             // Controls that update the screen when changed
-            $("#microchipped").click(animal.enable_widgets).keyup(animal.enable_widgets);
-            $("#tattoo").click(animal.enable_widgets).keyup(animal.enable_widgets);
-            $("#smarttag").click(animal.enable_widgets).keyup(animal.enable_widgets);
-            $("#neutered").click(animal.enable_widgets).keyup(animal.enable_widgets);
-            $("#fivltested").click(animal.enable_widgets).keyup(animal.enable_widgets);
-            $("#heartwormtested").click(animal.enable_widgets).keyup(animal.enable_widgets);
+            $("#microchipped").change(animal.enable_widgets);
+            $("#tattoo").change(animal.enable_widgets);
+            $("#smarttag").change(animal.enable_widgets);
+            $("#neutered").change(animal.enable_widgets);
+            $("#fivltested").change(animal.enable_widgets);
+            $("#heartwormtested").change(animal.enable_widgets);
             $("#deceaseddate").change(animal.enable_widgets);
             $("#healthproblems").change(animal.enable_widgets);
             $("#specialneeds").change(animal.enable_widgets);
+            $("#entrytype").change(animal.enable_widgets);
+            $("#transferin").change(animal.enable_widgets);
             $("#litterid").keyup(animal.enable_widgets);
             $("#microchipnumber").keyup(animal.enable_widgets);
             $("#microchipnumber2").keyup(animal.enable_widgets);
             $("#microchipdate").change(animal.enable_widgets);
             $("#microchipdate2").change(animal.enable_widgets);
-            $("#pickedup").click(animal.enable_widgets).keyup(animal.enable_widgets);
-            $("#transferin").click(animal.enable_widgets).keyup(animal.enable_widgets);
-            $("#crossbreed").click(animal.enable_widgets).keyup(animal.enable_widgets);
-            $("#species").click(animal.enable_widgets).keyup(animal.enable_widgets);
+            $("#pickedup").change(animal.enable_widgets);
+            $("#crossbreed").change(animal.enable_widgets);
+            $("#species").change(animal.enable_widgets);
 
             validate.save = async function(callback) {
                 if (!animal.validation()) { header.hide_loading(); return; }
@@ -1640,16 +1689,25 @@ $(function() {
 
             $("#button-email").button().click(function() {
                 let defaultemail = "", defaultname = "", toaddresses = [];
+                // Use the future owner if the animal has a future adoption
+                if (controller.animal && controller.animal.FUTUREOWNEREMAILADDRESS) {
+                    defaultemail = controller.animal.FUTUREOWNEREMAILADDRESS;
+                    defaultname = controller.animal.FUTUREOWNERNAME;
+                } 
                 // Use the latest reservation/person if the animal is on shelter/foster and a reserve is available
-                if (controller.animal && controller.animal.ARCHIVED == 0 && controller.animal.RESERVEDOWNEREMAILADDRESS) {
+                else if (controller.animal && controller.animal.ARCHIVED == 0 && controller.animal.RESERVEDOWNEREMAILADDRESS) {
                     defaultemail = controller.animal.RESERVEDOWNEREMAILADDRESS;
                     defaultname = controller.animal.RESERVEDOWNERNAME;
                 }
+                // Otherwise person from the active movement
                 else if (controller.animal && controller.animal.CURRENTOWNEREMAILADDRESS) {
                     defaultemail = controller.animal.CURRENTOWNEREMAILADDRESS;
                     defaultname = controller.animal.CURRENTOWNERNAME;
                 }
                 // Other useful addresses for the dialog
+                if (controller.animal && controller.animal.FUTUREOWNEREMAILADDRESS) { 
+                    toaddresses.push(controller.animal.FUTUREOWNEREMAILADDRESS);
+                }
                 if (controller.animal && controller.animal.RESERVEDOWNEREMAILADDRESS) { 
                     toaddresses.push(controller.animal.RESERVEDOWNEREMAILADDRESS);
                 }
@@ -1790,7 +1848,6 @@ $(function() {
 
             // If a popup warning has been set, display it
             animal.show_popup_warning();
-
         },
 
         destroy: function() {

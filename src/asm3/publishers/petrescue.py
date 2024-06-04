@@ -183,10 +183,9 @@ class PetRescuePublisher(AbstractPublisher):
                     self.log("Sending PATCH to %s to update existing listing: %s" % (url, jsondata))
                     r = asm3.utils.patch_json(url, jsondata, headers=headers)
 
-                    if r["status"] == 200:
+                    if r["status"] == 200 or (r["status"] == 401 and r["response"].find("not_found") != -1):
                         self.log("HTTP %d, headers: %s, response: %s" % (r["status"], r["headers"], r["response"]))
                         self.logSuccess("%s - %s: Marked with new status %s" % (an.SHELTERCODE, an.ANIMALNAME, status))
-
                         # Update animalpublished for this animal with the status we just sent in the Extra field
                         # so that it can be picked up next time.
                         self.markAnimalPublished(an.ID, extra = status)
@@ -228,19 +227,19 @@ class PetRescuePublisher(AbstractPublisher):
         else: origin = "community_cat"
 
         best_feature = "Looking for love"
-        if "BESTFEATURE" in an and an.BESTFEATURE != "":
+        if "BESTFEATURE" in an and an.BESTFEATURE:
             best_feature = an.BESTFEATURE
 
         needs_constant_care = False
-        if "NEEDSCONSTANTCARE" in an and an.NEEDSCONSTANTCARE != "" and an.NEEDSCONSTANTCARE != "0":
+        if "NEEDSCONSTANTCARE" in an and an.NEEDSCONSTANTCARE and an.NEEDSCONSTANTCARE != "0":
             needs_constant_care = True
 
         bred_in_care_of_group = False
-        if "BREDINCAREOFGROUP" in an and an.BREDINCAREOFGROUP != "" and an.BREDINCAREOFGROUP != "0":
+        if "BREDINCAREOFGROUP" in an and an.BREDINCAREOFGROUP and an.BREDINCAREOFGROUP != "0":
             bred_in_care_of_group = True
 
         needs_foster = False
-        if "NEEDSFOSTER" in an and an.NEEDSFOSTER != "" and an.NEEDSFOSTER != "0":
+        if "NEEDSFOSTER" in an and an.NEEDSFOSTER and an.NEEDSFOSTER != "0":
             needs_foster = True
 
         # Check whether we've been vaccinated, wormed and hw treated
@@ -299,10 +298,10 @@ class PetRescuePublisher(AbstractPublisher):
             "source_number":            vicsourcenumber, # mandatory for Victoria cats and dogs
             "rehoming_organisation_id": nswrehomingorganisationid, # required for NSW, this OR microchip or breeder_id is mandatory
             "bred_in_care_of_group":    bred_in_care_of_group, 
-            "mix":                      an.CROSSBREED == 1, # true | false
+            "mix":                      self.isCrossBreed(an), # true | false
             "date_of_birth":            asm3.i18n.format_date(an.DATEOFBIRTH, "%Y-%m-%d"), # iso
             "gender":                   an.SEXNAME.lower(), # male | female
-            "personality":              self.getDescription(an, replaceSmart=True), # 20-4000 chars of free type
+            "personality":              self.getDescription(an), # 20-4000 chars of free type
             "best_feature":             best_feature, # 25 chars free type, defaults to "Looking for love" requires BESTFEATURE additional field
             "location_postcode":        location_postcode, # shelter/fosterer postcode
             "location_state_abbr":      location_state_abbr, # shelter/fosterer state

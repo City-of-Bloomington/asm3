@@ -33,11 +33,6 @@ db_username = robin
 db_password = robin
 db_name = asm
 
-# If you want to maintain compatibility with an ASM2 client
-# accessing your database, setting this will have ASM3
-# update the primarykey table that ASM2 needs
-db_has_asm2_pk_table = false
-
 # Time out queries that take longer than this (ms) to run
 db_timeout = 0
 
@@ -96,9 +91,6 @@ image_hotlinking_only_from_domain =
 # web.py to buffer the output, which can cause problems with
 # dumps of large databases.
 large_files_chunked = true
-
-# QR code provider. "url" and "size" tokens will be substituted
-qr_img_src = //chart.googleapis.com/chart?cht=qr&chl=%(url)s&chs=%(size)s
 
 # Whether to resize incoming images
 resize_images_during_attach = true

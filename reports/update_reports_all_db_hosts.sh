@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Send the update smcom_client.py file to all of our database servers
+# Send the updated reports.txt file to all of our database servers
 
 ./update.py
 

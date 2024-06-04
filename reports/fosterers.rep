@@ -2,14 +2,14 @@ All Fosterers Info
 ###
 Auditing
 ###
-3000/PostgreSQL rev01
+3000/PostgreSQL rev03
 ###
 All fosterers with contact info and notes
 ###
 en
 ###
 SELECT
-OwnerName,
+OwnerName, owner.ID AS OID,
 OwnerAddress, OwnerTown, OwnerCounty, OwnerPostcode, HomeTelephone, MobileTelephone, EmailAddress, 
 Comments,
 AdditionalFlags,
@@ -22,6 +22,7 @@ ORDER BY OwnerName
 ###
 $$HEADER
 <table border="1">
+<thead>
 <tr>
 <th>Fosterer</th>
 <th>Contact</th>
@@ -30,11 +31,13 @@ $$HEADER
 <th>Fosters</th>
 <th></th>
 </tr>
+</thead>
+<tbody>
 HEADER$$
 
 $$BODY
 <tr>
-<td>$OWNERNAME</td>
+<td><a target="_blank" href="person?id=$OID">$OWNERNAME</a></td>
 <td>$OWNERADDRESS<br/>
 $OWNERTOWN $OWNERCOUNTY $OWNERPOSTCODE<br/>
 H: $HOMETELEPHONE<br/>
@@ -48,5 +51,6 @@ E: $EMAILADDRESS</td>
 BODY$$
 
 $$FOOTER
+</tbody>
 </table>
 FOOTER$$

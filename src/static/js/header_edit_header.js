@@ -129,6 +129,10 @@ edit_header = {
         if (a.ADOPTIONCOORDINATORID) {
             coordinator = '<tr><td>' + _("Adoption Coordinator") + ':</td><td><b>' + html.person_link(a.ADOPTIONCOORDINATORID, a.ADOPTIONCOORDINATORNAME) + '</b></td></tr>';
         }
+        let mother = "";
+        if (a.MOTHERID) {
+            mother = '<tr><td>' + _("Mother") + ':</td><td><b><a href="animal?id=' + a.MOTHERID + '">' + a.MOTHERNAME + ' - ' + a.MOTHERCODE + '</a></b></td></tr>';
+        }
         let chipinfo = "";
         if (a.IDENTICHIPPED == 1) {
             chipinfo = '<tr><td>' + _("Microchip") + ':</td><td><b>' + a.IDENTICHIPNUMBER + " " + common.nulltostr(a.IDENTICHIP2NUMBER) + '</b></td></tr>';
@@ -139,11 +143,19 @@ edit_header = {
             entershelterdate = format.date(a.ACTIVEBOARDINGINDATE) + " " + format.time(a.ACTIVEBOARDINGINDATE);
         }
         else {
-            entershelterdate = format.date(a.MOSTRECENTENTRYDATE) + " ";
-            if (format.time(a.MOSTRECENTENTRYDATE) != "00:00:00") { 
-                entershelterdate += format.time(a.MOSTRECENTENTRYDATE); 
+            entershelterdate = format.date(a.DATEBROUGHTIN) + " ";
+            if (format.time(a.DATEBROUGHTIN) != "00:00:00") { 
+                entershelterdate += format.time(a.DATEBROUGHTIN); 
             }
         }
+        let mostrecententershelterdate = "";
+        if (a.DATEBROUGHTIN != a.MOSTRECENTENTRYDATE) {
+            mostrecententershelterdate = format.date(a.MOSTRECENTENTRYDATE) + " ";
+            if (format.time(a.MOSTRECENTENTRYDATE) != "00:00:00") { 
+                mostrecententershelterdate += format.time(a.MOSTRECENTENTRYDATE); 
+            }
+        }
+
         let leftshelterdate = "";
         if (a.ARCHIVED == 0 && a.HASACTIVEBOARDING == 1) {
             leftshelterdate = format.date(a.ACTIVEBOARDINGOUTDATE) + " " + format.time(a.ACTIVEBOARDINGOUTDATE);
@@ -186,12 +198,14 @@ edit_header = {
             '<tr>',
             '<td id="hloc">' + _("Location") + ':</td><td><b>' + displaylocation + '</b></td>',
             '</tr>',
+            mother,
             coordinator,
             animalcontrol,
             chipinfo,
             '<tr>',
             '<td id="hentshel">' + _("Entered shelter") + ':</td><td><b>' + entershelterdate + '</b></td>',
             '</tr>',
+            mostrecententershelterdate != "" ? '<tr>' + '<td id="latesthentshel">' + _("Last entered shelter") + ':</td><td><b>' + mostrecententershelterdate + '</b></td>' + '</tr>' : '',
             hold,
             '<tr>',
             '<td id="hleftshel">' + _("Left shelter") + ':</td><td><b>' + leftshelterdate + '</b></td>',

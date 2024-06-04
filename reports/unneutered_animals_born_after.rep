@@ -2,13 +2,13 @@ Non-Neutered/Spayed Shelter Animals Born After
 ###
 Auditing
 ###
-Any rev03
+Any rev05
 ###
 Non-neutered/spayed animals born after a certain date
 ###
 en
 ###
-SELECT ShelterCode, AnimalName,
+SELECT ShelterCode, AnimalName, animal.ID AS AID,
 internallocation.LocationName, animaltype.AnimalType,
 species.SpeciesName, AnimalAge, lksex.Sex
 FROM animal
@@ -21,20 +21,24 @@ AND SpeciesID IN (1,2)
 AND animal.DateOfBirth >= '$ASK DATE Animals born after$'
 ###
 $$HEADER
-<table border=1><tr>
-<td><b>Code</b></td>
-<td><b>Name</b></td>
-<td><b>Location</b></td>
-<td><b>Type</b></td>
-<td><b>Species</b></td>
-<td><b>Age</b></td>
-<td><b>Sex</b></td>
+<table border=1>
+<thead>
+<tr>
+<th><b>Code</b></th>
+<th><b>Name</b></th>
+<th><b>Location</b></th>
+<th><b>Type</b></th>
+<th><b>Species</b></th>
+<th><b>Age</b></th>
+<th><b>Sex</b></th>
 </tr>
+</thead>
+<tbody>
 HEADER$$
 
 $$BODY<tr>
 <td>$SHELTERCODE</td>
-<td>$ANIMALNAME</td>
+<td><a target="_blank" href="animal?id=$AID">$ANIMALNAME</a></td>
 <td>$LOCATIONNAME</td>
 <td>$ANIMALTYPE</td>
 <td>$SPECIESNAME</td>
@@ -44,5 +48,6 @@ $$BODY<tr>
 BODY$$
 
 $$FOOTER
+</tbody>
 </table>
 FOOTER$$

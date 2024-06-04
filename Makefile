@@ -39,6 +39,7 @@ clean:
 	rm -rf src/asm3/pbkdf2/__pycache__
 	rm -f src/asm3/publishers/*.pyc
 	rm -rf src/asm3/publishers/__pycache__
+	rm -f scripts/schema/schema.db
 
 version:
 	# Include me in any release target to stamp the 
@@ -113,6 +114,16 @@ manual:
 	scp -C doc/manual/_build/latex/asm3.pdf root@wwwdx.sheltermanager.com:/var/www/sheltermanager.com/repo/asm3_help.pdf
 	rsync -a doc/manual/_build/html/ root@wwwdx.sheltermanager.com:/var/www/sheltermanager.com/repo/asm3_help/
 
+chipprefixes:
+	@echo "[reports] ========================="
+	cd chipprefix && ./update_www.sh
+	cd chipprefix && ./update_prefixes_all_db_hosts.sh
+
+smcomreports:
+	@echo "[smcomreports] ========================="
+	cd reports && ./update_www.sh
+	cd reports && ./update_reports_all_db_hosts.sh
+
 test: version
 	@echo "[test] ========================="
 	cd src && python3 main.py 5000
@@ -124,8 +135,10 @@ tests:
 
 deps:
 	@echo "[deps] ========================="
-	apt-get install python3 python3-pip python3-cheroot python3-pil python3-mysqldb python3-psycopg2
-	apt-get install python3-memcache python3-requests python3-reportlab python3-xhtml2pdf
+	apt-get install python3 python3-cheroot python3-pil python3-mysqldb python3-psycopg2
+	apt-get install python3-memcache python3-requests python3-reportlab python3-xhtml2pdf python3-lxml
+	apt-get install python3-qrcode python3-openpyxl
+	apt-get install python3-boto3 python3-stripe
 	apt-get install python3-sphinx python3-sphinx-rtd-theme texlive-latex-base texlive-latex-extra latexmk
 	apt-get install exuberant-ctags flake8 imagemagick wkhtmltopdf nodejs npm memcached
 	npm install

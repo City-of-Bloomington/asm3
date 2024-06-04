@@ -146,6 +146,7 @@ class AKCReunitePublisher(AbstractPublisher):
         """ Returns a JSON document from an animal """
         reccountry = an.CURRENTOWNERCOUNTRY
         if reccountry is None or reccountry == "": reccountry = "USA"
+        address = self.splitAddress(an.CURRENTOWNERADDRESS)
         o = {
             "enrollmentSourceId": enrollmentsourceid,
             "pet": {
@@ -168,7 +169,7 @@ class AKCReunitePublisher(AbstractPublisher):
                 "emailAddress": an.CURRENTOWNEREMAILADDRESS,
                 "emailOptIn":   True,
                 "address": {
-                    "street":   an.CURRENTOWNERADDRESS, 
+                    "street":   address["csv"],
                     "streetExtra": "",
                     "city":     an.CURRENTOWNERTOWN,
                     "stateProvince": an.CURRENTOWNERCOUNTY,
@@ -210,10 +211,6 @@ class AKCReunitePublisher(AbstractPublisher):
 
         if asm3.utils.nulltostr(an.CURRENTOWNERPOSTCODE).strip() == "":
             self.logError("Postal code for the new owner is blank, cannot process")
-            return False
-
-        if an.IDENTICHIPDATE is None:
-            self.logError("Microchip date cannot be blank, cannot process")
             return False
 
         # Make sure the length is actually suitable

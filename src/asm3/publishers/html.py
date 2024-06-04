@@ -92,6 +92,19 @@ def get_held_animals(dbo: Database, style="", speciesid=0, animaltypeid=0, order
         "ORDER BY %s" % orderby)
     return animals_to_page(dbo, animals, style=style, speciesid=speciesid, animaltypeid=animaltypeid)
 
+def get_stray_animals(dbo: Database, style="", speciesid=0, animaltypeid=0, orderby="entered_desc") -> str:
+    """ Returns a page of stray animals in care.
+    style: The HTML publishing template to use
+    speciesid: 0 for all species, or a specific one
+    animaltypeid: 0 for all animal types or a specific one
+    """
+    if orderby == "": orderby = "entered_desc"
+    orderby = get_orderby_const(orderby)
+    animals = dbo.query(asm3.animal.get_animal_query(dbo) + \
+        " WHERE a.Archived = 0 AND a.EntryTypeID = 2 "
+        "ORDER BY %s" % orderby)
+    return animals_to_page(dbo, animals, style=style, speciesid=speciesid, animaltypeid=animaltypeid)
+
 def get_orderby_const(c: str) -> str:
     """
     Returns an ORDER BY clause for a given constant
@@ -134,9 +147,12 @@ def animals_to_page(dbo: Database, animals: Results, style="", speciesid=0, anim
     overweeks: Only return animals aged over weeks, 0 = ignore
     """
     # Get the specified template
-    head, body, foot = asm3.template.get_html_template(dbo, style)
-    if head == "":
+    if style == "":
         head, body, foot = get_animal_view_template(dbo)
+    else:
+        head, body, foot = asm3.template.get_html_template(dbo, style)
+        if head == "":
+            raise asm3.utils.ASMError(f"template {style} does not exist")
     # Substitute the header and footer tags
     org_tags = asm3.wordprocessor.org_tags(dbo, "system")
     head = asm3.wordprocessor.substitute_tags(head, org_tags, True, "$$", "$$")

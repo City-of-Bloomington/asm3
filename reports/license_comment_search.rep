@@ -2,7 +2,7 @@ License comment search
 ###
 Animal Control
 ###
-33307/Any
+33307/Any rev02
 ###
 Search the comments of issued licenses
 ###
@@ -11,8 +11,8 @@ en
 SELECT
 ol.LicenceNumber,
 lt.LicenceTypeName,
-o.OwnerName, a.AnimalName,
-ol.IssueDate, ol.ExpiryDate, ol.Comments, o.ID
+o.OwnerName, a.AnimalName, a.ID AS AID,
+ol.IssueDate, ol.ExpiryDate, ol.Comments, o.ID AS OID
 FROM ownerlicence ol
 INNER JOIN licencetype lt ON lt.ID = ol.LicenceTypeID
 INNER JOIN owner o ON o.ID = ol.OwnerID
@@ -22,6 +22,7 @@ ORDER BY ol.IssueDate
 ###
 $$HEADER
 <table border="1">
+<thead>
 <tr>
 <th>Number</th>
 <th>Type</th>
@@ -31,14 +32,16 @@ $$HEADER
 <th>Expires</th>
 <th>Comments</th>
 </tr>
+</thead>
+<tbody>
 HEADER$$
 
 $$BODY
 <tr>
 <td>$LICENCENUMBER</td>
 <td>$LICENCETYPENAME</td>
-<td><a target="_blank" href="person_licence?id=$ID">$OWNERNAME</a></td>
-<td>$ANIMALNAME</td>
+<td><a target="_blank" href="person_licence?id=$OID">$OWNERNAME</a></td>
+<td><a target="_blank" href="animal_licence?id=$AID">$ANIMALNAME</a></td>
 <td>$ISSUEDATE</td>
 <td>$EXPIRYDATE</td>
 <td>$COMMENTS</td>
@@ -46,5 +49,6 @@ $$BODY
 BODY$$
 
 $$FOOTER
+</tbody>
 </table>
 FOOTER$$

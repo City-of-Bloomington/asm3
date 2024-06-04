@@ -211,12 +211,14 @@ def good_with(s):
 
 def get_currency(s):
     if s is None: return 0
-    if type(s) == int or type(s) == float: return int(s * 100)
+    if type(s) == int or type(s) == float: 
+        return int(round((s * 100.0)))
     if s.strip() == "": return 0
     s = s.replace("$", "")
     s = s.replace("&nbsp;", "")
     try:
-        return int(float(s) * 100)
+        # NOTE: use of round() avoids floating point errors, eg: 80.85 * 100 = 8084.99999999
+        return int(round(float(s) * 100.0))
     except:
         return 0
 
@@ -1048,6 +1050,9 @@ def incidenttype_from_db(name, default = 1):
     """ Looks up the type in the db when the conversion is run, assign to IncidentTypeID """
     return "COALESCE((SELECT ID FROM incidenttype WHERE lower(IncidentName) LIKE lower(%s) LIMIT 1), %d)" % (ds(name.strip()), default)
 
+def incident_animal(incidentid, animalid):
+    print(f"INSERT INTO animalcontrolanimal (AnimalControlID, AnimalID) VALUES ({incidentid}, {animalid});")
+
 def jurisdiction_id_for_name(name, createIfNotExist = True):
     global jurisdictions
     if name.strip() == "": return 1
@@ -1663,6 +1668,8 @@ def load_file_from_url(url, cache=True):
     so that repeated calls do not go back to the origin.
     """
     try:
+        if url.startswith("//"): 
+            url = "https:%s" % url
         sys.stderr.write("GET %s\n" % url)
         if not os.path.exists("/tmp/import_cache"):
             os.mkdir("/tmp/import_cache")
@@ -1963,6 +1970,7 @@ class DonationType:
 
 class AnimalControl:
     ID = 0
+    IncidentCode = ""
     IncidentDateTime = None
     IncidentTypeID = 1
     CallDateTime = None
@@ -2005,8 +2013,11 @@ class AnimalControl:
         self.ID = ID
         if ID == 0: self.ID = getid("animalcontrol")
     def __str__(self):
+        if self.IncidentCode.strip() == "": 
+            self.IncidentCode = padleft(self.ID, 6)
         s = (
             ( "ID", di(self.ID) ),
+            ( "IncidentCode", ds(self.IncidentCode) ),
             ( "IncidentDateTime", ddt(self.IncidentDateTime) ),
             ( "IncidentTypeID", di(self.IncidentTypeID) ),
             ( "CallDateTime", ddt(self.CallDateTime) ),
@@ -2236,6 +2247,7 @@ class Animal:
     ReasonNO = ""
     DateBroughtIn = today()
     EntryReasonID = 1
+    EntryTypeID = 1
     HealthProblems = ""
     PutToSleep = 0
     PTSReason = ""
@@ -2315,6 +2327,8 @@ class Animal:
             self.MostRecentEntryDate = self.DateBroughtIn
         if self.IdentichipNumber is None:
             self.IdentichipNumber = ""
+        if self.NonShelterAnimal == 1 and self.OriginalOwnerID > 0 and self.OwnerID == 0:
+            self.OwnerID = self.OriginalOwnerID
         s = (
             ( "ID", di(self.ID) ),
             ( "AnimalTypeID", di(self.AnimalTypeID) ),
@@ -2377,6 +2391,7 @@ class Animal:
             ( "ReasonNO", ds(self.ReasonNO) ),
             ( "DateBroughtIn", dd(self.DateBroughtIn) ),
             ( "EntryReasonID", di(self.EntryReasonID) ),
+            ( "EntryTypeID", di(self.EntryTypeID) ),
             ( "AsilomarIsTransferExternal", di(0) ),
             ( "AsilomarIntakeCategory", di(0) ),
             ( "AsilomarOwnerRequestedEuthanasia", di(0) ),
@@ -2570,6 +2585,7 @@ class Owner:
     IsVet = 0
     IsGiftAid = 0
     IsDeceased = 0
+    IsSponsor = 0
     ExcludeFromBulkEmail = 0
     GDPRContactOptIn = ""
     HomeCheckAreas = ""
@@ -2678,6 +2694,7 @@ class Owner:
             ( "IsVet", di(self.IsVet) ),
             ( "IsGiftAid", di(self.IsGiftAid) ),
             ( "IsDeceased", di(self.IsDeceased) ),
+            ( "IsSponsor", di(self.IsSponsor) ),
             ( "ExcludeFromBulkEmail", di(self.ExcludeFromBulkEmail) ),
             ( "GDPRContactOptIn", ds(self.GDPRContactOptIn) ),
             ( "HomeCheckAreas", ds(self.HomeCheckAreas) ),

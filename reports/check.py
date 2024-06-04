@@ -25,11 +25,12 @@ SHOWNONEXEC = "SHOWNONEXEC" in os.environ and os.environ["SHOWNONEXEC"]
 FORCENONEXEC = "FORCENONEXEC" in os.environ and os.environ["FORCENONEXEC"]
 EXECPOSTGRES = "EXECPOSTGRES" in os.environ and os.environ["EXECPOSTGRES"]
 
+errors = 0
 checked = 0
 total = 0
 
 def substitute(sql):
-    COMMON_DATE_TOKENS = ( "CURRENT_DATE", "@from", "@to", "@dt", "@thedate" )
+    COMMON_DATE_TOKENS = ( "CURRENT_DATE", "@from", "@to", "@osfrom", "@osto", "@osatdate", "@dt", "@thedate" )
     # Clean up and substitute some tags
     sql = sql.replace("$USER$", "dummy")
     # Subtitute CONST tokens
@@ -57,9 +58,58 @@ def substitute(sql):
         i = sql.find("$", i+1)
     return sql.strip()
 
+_html_parser = None
+def validate_html(html):
+    """If lxml can properly parse the html, return the lxml representation.
+    Otherwise raise."""
+    global _html_parser
+    from lxml import etree
+    from io import StringIO
+    if not _html_parser: _html_parser = etree.HTMLParser(recover = False)
+    return etree.parse(StringIO(html), _html_parser)
+
+def check_html(h):
+    global errors
+    def get_section(startpattern, endpattern, nth=1):
+        ss = h.find(startpattern)
+        es = h.find(endpattern, ss)
+        if nth == 2:
+            ss = h.find(startpattern, es)
+            es = h.find(endpattern, ss)
+        if ss == -1: 
+            return ""
+        if es == -1:
+            print(f"missing end tag {endpattern}")
+            return ""
+        return h[ss + len(startpattern):es]
+    def get_groupheadfoot(g):
+        gh = g.find("$$HEAD")
+        gf = g.find("$$FOOT")
+        if gh == -1 or gf == -1:
+            print(f"can't find $$HEAD or $$FOOT in group '{g}'")
+        return g[gh+6:gf], g[gf+6:]
+    header = get_section("$$HEADER", "HEADER$$")
+    footer = get_section("$$FOOTER", "FOOTER$$")
+    body = get_section("$$BODY", "BODY$$")
+    group1 = get_section("$$GROUP", "GROUP$$", 1)
+    group2 = get_section("$$GROUP", "GROUP$$", 2)
+    group1head = ""
+    group1foot = ""
+    group2head = ""
+    group2foot = ""
+    if group1 != "": group1head, group1foot = get_groupheadfoot(group1)
+    if group2 != "": group2head, group2foot = get_groupheadfoot(group2)
+    doc = f"{header}\n{group1head}\n{group2head}\n{body}\n{group2foot}\n{group1foot}\n{footer}"
+    try:
+        validate_html(doc)
+    except Exception as e:
+        errors += 1
+        print("\nHTML VALIDATION FAILED: %s" % e)
+
 def parse_reports(data):
     global checked
     global total
+    global errors
     reports = data.split("&&&")
     for rep in reports:
         total += 1
@@ -81,8 +131,11 @@ def parse_reports(data):
                 checked += 1
                 db.query(substitute(sql))
             except Exception as err:
+                errors += 1
                 print(f"\nQUERY FAILED: {err}\n")
                 print(sql)
+            if len(html) > 0 and html.find("<") != -1:
+                check_html(html)
             if subreports:
                 elem=0
                 name = ""
@@ -102,15 +155,21 @@ def parse_reports(data):
                             checked += 1
                             db.query(substitute(sql))
                         except Exception as err:
+                            errors += 1
                             print(f"\nQUERY FAILED: {err}\n")
                             print(sql)
+                        if len(html) > 0 and html.find("<") != -1:
+                            check_html(html)
+
         elif EXECPOSTGRES and dbinfo.find("PostgreSQL") != -1:
             with open("zzz_check.sql", "w") as f:
                 f.write(substitute(sql))
             checked += 1
-            os.system("scp -q zzz_check.sql root@eur04bdx.sheltermanager.com:/root/")
-            os.system("ssh root@eur04bdx.sheltermanager.com \"psql -q -U robin -f zzz_check.sql > /dev/null && rm -f zzz_check.sql\"")
+            os.system("scp -q zzz_check.sql root@eur05ddx.sheltermanager.com:/root/")
+            os.system("ssh root@eur05ddx.sheltermanager.com \"psql -q -U robin -f zzz_check.sql > /dev/null && rm -f zzz_check.sql\"")
             os.system("rm -f zzz_check.sql")
+            if len(html) > 0 and html.find("<") != -1:
+                check_html(html)
         else:
             if SHOWNONEXEC:
                 print(f"Cannot execute query for {dbinfo}, copy and paste query below:\n")
@@ -125,4 +184,4 @@ for f in sys.argv:
         with open(f, "r") as h:
             parse_reports(h.read())
 
-print(f"\nChecked {checked} / {total} queries.")
+print(f"\nChecked {checked} / {total} reports. {errors} errors.")

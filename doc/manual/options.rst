@@ -121,6 +121,10 @@ choose some extra fields for the new animal screen.
   allows for two breed fields and a crossbreed indicator so that mixed breed
   type animals can be recorded (this is typical for US shelters). 
 
+* OR only show the second breed field for these species of animals: If the
+  "use a single breed field for animals" option is not enabled, restrict
+  display of the second breed field to only these species of animals. 
+
 * Show the color field: Allow entry of a specific colour
 
 * Show the adoption fee field: Allow entry of an adoption fee
@@ -246,6 +250,9 @@ Any values you put in your codes other than these tokens (such as punctuation
 or other letters) will not be substituted and will be retained in generated
 codes. For example, the format NNN:21:T will produce 001:21:D for the first dog
 of the year. 
+
+There is also an option on this screen to set codes for animal control incidents,
+with a limited subset of these values (YYYY, MM, DD, XXX, OOO, UUUU).
 
 * Manually enter codes (do not generate): This option tells ASM that you don't
   want it to generate any codes. A code field will appear on the add animal
@@ -633,13 +640,21 @@ Email
 -----
 
 Configure the email address used as the FROM address when sending from ASM. You
-can also configure autocomplete items for the from, to and cc address boxes.
+can also configure autocomplete items for the from, to and cc address boxes
+as well as default BCC address if you want to copy all emails somewhere else.
 
 (sheltermanager.com only) You can override the use of smtp.sheltermanager.com
 and use your own SMTP server to send email if you wish. This is an advanced
 option for experienced users, if you do not understand what you are doing, do
 not enable the option to use your own SMTP server as you will likely break
 the email sending functionality for your database.
+
+ASM normally uses the email address configured in this tab in the FROM header,
+with whatever the user puts in the From field as the Reply-To header. There is
+an option available here (sheltermanager.com only) to use the
+reply address as the FROM address. Just be aware that this can cause relay
+failures or messages to be classified as spam if the user attempts to send from
+an address that you do not own the domain for.
 
 Find Screens
 ------------
@@ -920,6 +935,25 @@ Online Forms
   recorded. This prevents anyone from editing form submissions after they have been
   stored.
 
+There are a number of options for protection forms from spambots. If any of
+these options are enabled and triggered by a form submission, the submitter
+will see the thank you screen and think it has worked, but the form will be
+silently dropped so that you do not have to delete it from the queue.
+
+* Spambot protection: Invisible checkbox: Sometimes called a honey trap, forms will
+  add an extra invisible checkbox that only bots can see. If the box is ticked, we
+  know the submission has been filled in by a bot.
+
+* Spambot protection: Useragent check: Web browsers all have comment elements to the
+  useragent string they use to identify themselves. This option will reject the form
+  if we don't recognise the submission as coming from a browser.
+
+* Spambot protection: First name mixed case: The firstname field on a form (if
+  present) should only really contain one upper case character per name and
+  it's unusual for there to be more than two first names. Bots tend to autofill
+  fields with random junk like YxoOopoUoyuVV - this option will reject form
+  submissions where the first name has too many upper case characters.
+
 .. _paymentprocessors:
 
 Payment Processors
@@ -1027,6 +1061,10 @@ System
 
 * Remove the animal control functionality from menus: Setting this option
   removes the animal control screens from the menu.
+
+* Remove the event management functionality from menus and screens: If your
+  shelter does not hold events, setting this option will remove the systems
+  event screens from the menu and adoption movement screen.
 
 * Remove fine-grained animal control incident permissions: Setting this option
   removes the "View Roles" control from the new incident and edit incident

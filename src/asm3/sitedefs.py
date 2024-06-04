@@ -105,11 +105,6 @@ DB_USERNAME = get_string("db_username", "robin")
 DB_PASSWORD = get_string("db_password", "robin")
 DB_NAME = get_string("db_name", "asm")
 
-# If you want to maintain compatibility with an ASM2 client
-# accessing your database, setting this will have ASM3
-# update the primarykey table that ASM2 needs
-DB_HAS_ASM2_PK_TABLE = get_boolean("db_has_asm2_pk_table", False)
-
 # If set, all calls to db.execute will be logged to the file
 # named. Use {database} to substitute database name.
 DB_EXEC_LOG = get_string("db_exec_log")
@@ -133,6 +128,7 @@ DB_TIMEOUT = get_integer("db_timeout", 0)
 # URLs for ASM services
 URL_NEWS = get_string("url_news", "https://sheltermanager.com/repo/asm_news.html")
 URL_REPORTS = get_string("url_reports", "https://sheltermanager.com/repo/reports.txt")
+URL_MICROCHIP_PREFIXES = get_string("url_microchip_prefixes", "https://sheltermanager.com/repo/chipprefixes.txt")
 
 # Deployment type, wsgi or fcgi
 DEPLOYMENT_TYPE = get_string("deployment_type", "wsgi")
@@ -181,6 +177,13 @@ DBFS_S3_MIGRATE_ACCESS_KEY_ID = get_string("dbfs_s3_migrate_access_key_id", "")
 DBFS_S3_MIGRATE_SECRET_ACCESS_KEY = get_string("dbfs_s3_migrate_secret_access_key", "")
 DBFS_S3_MIGRATE_ENDPOINT_URL = get_string("dbfs_s3_migrate_endpoint_url", "")
 
+# If a backup S3 bucket can provider is set, all files sent to the S3 service
+# above will also be sent to this one too to maintain a synchronised backup.
+DBFS_S3_BACKUP_BUCKET = get_string("dbfs_s3_backup_bucket", "")
+DBFS_S3_BACKUP_ACCESS_KEY_ID = get_string("dbfs_s3_backup_access_key_id", "")
+DBFS_S3_BACKUP_SECRET_ACCESS_KEY = get_string("dbfs_s3_backup_secret_access_key", "")
+DBFS_S3_BACKUP_ENDPOINT_URL = get_string("dbfs_s3_backup_endpoint_url", "")
+
 # The directory to use to cache elements on disk. Must already exist
 # as the application will not attempt to create it.
 DISK_CACHE = get_string("disk_cache", "/tmp/asm_disk_cache")
@@ -214,8 +217,10 @@ IMAGE_HOTLINKING_ONLY_FROM_DOMAIN = get_string("image_hotlinking_only_from_domai
 # dumps of large databases.
 LARGE_FILES_CHUNKED = get_boolean("large_files_chunked", True)
 
-# QR code provider. "url" and "size" tokens will be substituted
-QR_IMG_SRC = get_string("qr_img_src", "//chart.googleapis.com/chart?cht=qr&chl=%(url)s&chs=%(size)s")
+# Maximum size a document template can be. Anything over this and the
+# user has probably copied/pasted an image as a data-uri and it will cause
+# tinymce to break and the doc to fail to load. Default 2M
+MAX_DOCUMENT_TEMPLATE_SIZE = get_integer("max_document_template_size", 2097152)
 
 # Whether to resize incoming images
 RESIZE_IMAGES_DURING_ATTACH = get_boolean("resize_images_during_attach", True)
@@ -338,6 +343,9 @@ MANUAL_FAQ_URL = get_string("manual_faq_url", "static/pages/manual/faq.html")
 MANUAL_PDF_URL = get_string("manual_pdf_url", "")
 MANUAL_VIDEO_URL = get_string("manual_video_url", "")
 
+# The file containing names to be used by the random name function
+RANDOM_NAME_FILE = get_string("random_name_file", os.path.dirname(os.path.abspath(__file__)) + os.sep + ".." + os.sep + "static" + os.sep + "pages" + os.sep + "names.txt")
+
 SMCOM_PAYMENT_LINK = get_string("smcom_payment_link", "")
 SMCOM_LOGIN_URL = get_string("smcom_login_url", "")
 
@@ -366,7 +374,7 @@ LEAFLET_CSS = get_string("leaflet_css", 'static/lib/leaflet/1.3.1/leaflet.css')
 LEAFLET_JS = get_string("leaflet_js", 'static/lib/leaflet/1.3.1/leaflet.js')
 MOMENT_JS = get_string("moment_js", 'static/lib/moment/2.29.1/moment.min.js')
 MOUSETRAP_JS = get_string("mousetrap_js", 'static/lib/mousetrap/1.4.6/mousetrap.min.js')
-PATH_JS = get_string("path_js", 'static/lib/pathjs/0.8.4.asm/path.min.js')
+PATH_JS = get_string("path_js", 'static/lib/pathjs/0.8.4.asm-2/path.min.js')
 QRCODE_JS = get_string("qrcode_js", 'static/lib/qrcodejs/1.0.0/qrcode.min.js')
 SIGNATURE_JS = get_string("signature_js", 'static/lib/signature/1.2.1-asm03/jquery.signature.min.js')
 TABLESORTER_CSS = get_string("tablesorter_css", 'static/lib/tablesorter/2.31.3-asm/dist/css/theme.asm.css')

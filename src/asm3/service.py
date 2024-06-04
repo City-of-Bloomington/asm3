@@ -15,6 +15,8 @@ import asm3.configuration
 import asm3.db
 import asm3.dbfs
 import asm3.dbupdate
+import asm3.event
+import asm3.financial
 import asm3.html
 import asm3.media
 import asm3.lostfound
@@ -25,7 +27,7 @@ import asm3.publishers.html
 import asm3.reports
 import asm3.users
 import asm3.utils
-from asm3.i18n import _, now, add_seconds, format_time, python2display, subtract_seconds
+from asm3.i18n import _, now, add_seconds, format_currency, format_time, python2display, subtract_seconds
 from asm3.sitedefs import BOOTSTRAP_JS, BOOTSTRAP_CSS, BOOTSTRAP_ICONS_CSS
 from asm3.sitedefs import JQUERY_JS, JQUERY_UI_JS, SIGNATURE_JS
 from asm3.sitedefs import BASE_URL, SERVICE_URL, MULTIPLE_DATABASES, CACHE_SERVICE_RESPONSES, IMAGE_HOTLINKING_ONLY_FROM_DOMAIN
@@ -35,15 +37,17 @@ from asm3.typehints import Database, PostedData, Results, ServiceResponse
 AUTH_METHODS = [
     "csv_import", "csv_mail", "csv_report", 
     "json_report", "jsonp_report", "json_mail", "jsonp_mail",
-    "html_report", "rss_timeline", "upload_animal_image", "xml_adoptable_animal", 
-    "json_adoptable_animal", "xml_adoptable_animals", "json_adoptable_animals", 
-    "jsonp_adoptable_animals", "xml_found_animals", "json_found_animals", 
-    "jsonp_found_animals", "xml_held_animals", "json_held_animals", 
-    "jsonp_held_animals", "xml_lost_animals", "json_lost_animals", 
-    "jsonp_lost_animals", "xml_recent_adoptions", "json_recent_adoptions", 
-    "jsonp_recent_adoptions", "xml_shelter_animals", "json_shelter_animals", 
-    "jsonp_shelter_animals", "xml_recent_changes", "json_recent_changes", 
-    "jsonp_recent_changes"
+    "html_report", "rss_timeline", "upload_animal_image", 
+    "xml_adoptable_animal", "json_adoptable_animal", 
+    "xml_adoptable_animals", "json_adoptable_animals", "jsonp_adoptable_animals", 
+    "xml_adopted_animals", "json_adopted_animals", 
+    "xml_found_animals", "json_found_animals", "jsonp_found_animals", 
+    "xml_held_animals", "json_held_animals", "jsonp_held_animals", 
+    "xml_lost_animals", "json_lost_animals", "jsonp_lost_animals", 
+    "xml_recent_adoptions", "json_recent_adoptions", "jsonp_recent_adoptions", 
+    "xml_recent_changes", "json_recent_changes", "jsonp_recent_changes", 
+    "xml_shelter_animals", "json_shelter_animals", "jsonp_shelter_animals", 
+    "xml_stray_animals", "json_stray_animals"
 ]
 
 # These are service methods that are defended against cache busting
@@ -55,6 +59,7 @@ CACHE_PROTECT_METHODS = {
     "animal_view_adoptable_html": [],
     "checkout": [ "processor", "payref" ],
     # "checkout_adoption" - write method
+    # "checkout_licence" - write method
     # "csv_import" - write method
     # "csv_mail", "csv_report" - custom params
     "dbfs_image": [ "title" ],
@@ -67,12 +72,16 @@ CACHE_PROTECT_METHODS = {
     "html_adoptable_animals": [ "speciesid", "animaltypeid", "locationid", "template", "underweeks", "overweeks" ],
     "html_adopted_animals": [ "days", "template", "speciesid", "animaltypeid", "order" ],
     "html_deceased_animals": [ "days", "template", "speciesid", "animaltypeid", "order" ],
+    "html_events": [ "count", "template" ],
     "html_flagged_animals": [ "template", "speciesid", "animaltypeid", "flag", "all", "order" ],
     "html_held_animals": [ "template", "speciesid", "animaltypeid", "order" ],
+    "html_stray_animals": [ "template", "speciesid", "animaltypeid", "order" ],
     "json_adoptable_animals": [ "sensitive" ],
     "json_adoptable_animals_xp": [],
     "xml_adoptable_animal": [ "animalid" ],
     "xml_adoptable_animals": [ "sensitive" ],
+    "json_adopted_animals": [ "fromdate", "todate" ],
+    "xml_adopted_animals": [ "fromdate", "todate" ],
     "json_found_animals": [],
     "xml_found_animals": [],
     "json_held_animals": [],
@@ -85,6 +94,8 @@ CACHE_PROTECT_METHODS = {
     "xml_recent_changes": [],
     "json_shelter_animals": [ "sensitive" ],
     "xml_shelter_animals": [ "sensitive" ],
+    "json_stray_animals": [],
+    "xml_stray_animals": [],
     "rss_timeline": [],
     "online_form_html": [ "formid" ],
     "online_form_json": [ "formid" ]
@@ -323,6 +334,94 @@ def checkout_adoption_post(dbo: Database, post: PostedData) -> str:
     url = "%s?%s" % (SERVICE_URL, asm3.utils.urlencode(params))
     return url
 
+def checkout_licence_page(dbo: Database, token: str) -> str:
+    """ Outputs a page that allows a licence holder to confirm and pay
+        for their licence renewal """ 
+    l = dbo.locale
+    scripts = [ 
+        asm3.html.script_tag(JQUERY_JS),
+        asm3.html.script_tag(JQUERY_UI_JS),
+        asm3.html.script_tag(BOOTSTRAP_JS),
+        asm3.html.script_tag(SIGNATURE_JS),
+        asm3.html.css_tag(BOOTSTRAP_CSS),
+        asm3.html.css_tag(BOOTSTRAP_ICONS_CSS),
+        asm3.html.script_i18n(dbo.locale),
+        asm3.html.asm_script_tag("service_checkout_licence.js") 
+    ]
+    co = asm3.cachedisk.get(token, dbo.database)
+    if co is None:
+        li = asm3.financial.get_licence_token(dbo, token)
+        if li is None:
+            raise asm3.utils.ASMError("invalid token")
+        if li.RENEWED == 1:
+            raise asm3.utils.ASMError("license already renewed")
+        co = {}
+        co["row"] = li
+        co["token"] = token
+        co["licencenumber"] = li.LICENCENUMBER
+        co["animalname"] = li.ANIMALNAME
+        co["animalid"] = li.ANIMALID
+        co["ownercode"] = li.OWNERCODE
+        co["ownerid"] = li.OWNERID
+        co["database"] = dbo.database
+        co["paymentfeeid"] = 0
+        co["newfee"] = asm3.financial.get_licence_fee(dbo, li.LICENCETYPEID)
+        co["formatfee"] = format_currency(dbo.locale, co["newfee"])
+        asm3.cachedisk.put(token, dbo.database, co, 86400 * 2)
+    # Record that the checkout was accessed in the log
+    logtypeid = asm3.configuration.system_log_type(dbo)
+    logmsg = "LC01:%s" % co["licencenumber"]
+    asm3.log.add_log(dbo, "system", asm3.log.PERSON, co["ownerid"], logtypeid, logmsg)
+    return asm3.html.js_page(scripts, _("License Checkout", l), co)
+
+def checkout_licence_post(dbo: Database, post: PostedData) -> str:
+    """
+    Called by the licence checkout frontend with the renewal amount.
+    Triggers creation of the payment records, etc.
+    Returns the URL needed to redirect to the payment processor to complete payment.
+    """
+    l = dbo.locale
+    co = asm3.cachedisk.get(post["token"], dbo.database)
+    if co is None:
+        raise asm3.utils.ASMError("invalid token")
+    # Create the due payment record if it hasn't been done already, along with a receipt/payref
+    if co["paymentfeeid"] == 0:
+        co["feetypeid"] = asm3.configuration.licence_checkout_feeid(dbo)
+        co["processor"] = asm3.configuration.adoption_checkout_processor(dbo)
+        co["receiptnumber"] = asm3.financial.get_next_receipt_number(dbo) # Both go on the same receipt
+        co["payref"] = "%s-%s" % (co["ownercode"], co["receiptnumber"])
+        # Link this payment reference to the licence so that when payment is received,
+        # we can update the licence and create the next one in the sequence
+        dbo.update("ownerlicence", co["row"].ID, { "PaymentReference": co["payref"] }, "system")
+        # Renewal Fee
+        co["paymentfeeid"] = asm3.financial.insert_donation_from_form(dbo, "checkout", asm3.utils.PostedData({
+            "person":       str(co["ownerid"]),
+            "animal":       str(co["animalid"]),
+            "movement":     "0",
+            "type":         co["feetypeid"], 
+            "payment":      asm3.configuration.adoption_checkout_payment_method(dbo),
+            "amount":       co["newfee"],
+            "due":          python2display(l, dbo.now()),
+            "receiptnumber": co["receiptnumber"],
+            "giftaid":      str("0")
+        }, l))
+        # Update the cache entry
+        asm3.cachedisk.put(post["token"], dbo.database, co, 86400 * 2)
+    # Record that the checkout was completed in the log
+    logtypeid = asm3.configuration.system_log_type(dbo)
+    logmsg = "LC02:%s:%s" % ( co["licencenumber"], co["newfee"] )
+    asm3.log.add_log(dbo, "system", asm3.log.PERSON, co["ownerid"], logtypeid, logmsg)
+    title = _("{0}: License renewal fee", l)
+    params = { 
+        "account": dbo.database, 
+        "method": "checkout",
+        "processor": co["processor"],
+        "payref": co["payref"],
+        "title": title.format(co["animalname"])
+    }
+    url = "%s?%s" % (SERVICE_URL, asm3.utils.urlencode(params))
+    return url
+
 def sign_document_page(dbo: Database, mid: int, email: str) -> str:
     """ Outputs a page that allows signing of document with media id mid. 
         email is the address to send a copy of the signed document to. """
@@ -487,6 +586,14 @@ def handler(post: PostedData, path: str, remoteip: str, referer: str, useragent:
             return set_cached_response(cache_key, account, "text/html", 120, 120, checkout_adoption_page(dbo, post["token"]))
         else:
             return ("text/plain", 0, 0, checkout_adoption_post(dbo, post))
+        
+    elif method == "checkout_licence":
+        if post["token"] == "":
+            raise asm3.utils.ASMError("method checkout_licence requires a valid token")
+        elif post["action"] == "":
+            return set_cached_response(cache_key, account, "text/html", 120, 120, checkout_licence_page(dbo, post["token"]))
+        else:
+            return ("text/plain", 0, 0, checkout_licence_post(dbo, post))
 
     elif method == "csv_import":
         asm3.users.check_permission_map(l, user.SUPERUSER, securitymap, asm3.users.IMPORT_CSV_FILE)
@@ -503,23 +610,44 @@ def handler(post: PostedData, path: str, remoteip: str, referer: str, useragent:
             imagedata = asm3.dbfs.get_string(dbo, title)
         return set_cached_response(cache_key, account, "image/jpeg", 86400, 86400, imagedata)
 
-    elif method =="document_repository":
-        return set_cached_response(cache_key, account, asm3.media.mime_type(asm3.dbfs.get_name_for_id(dbo, mediaid)), 86400, 86400, asm3.dbfs.get_string_id(dbo, mediaid))
-
-    elif method =="extra_image":
+    elif method == "document_repository":
+        return set_cached_response(cache_key, account, asm3.media.mime_type(asm3.dbfs.get_name_for_id(dbo, mediaid)), 86400, 86400, 
+            asm3.dbfs.get_string_id(dbo, mediaid))
+    
+    elif method == "extra_image":
         hotlink_protect("extra_image", referer)
         return set_cached_response(cache_key, account, "image/jpeg", 86400, 86400, asm3.dbfs.get_string(dbo, title, "/reports"))
 
-    elif method =="media_image":
+    elif method == "media_image":
         hotlink_protect("media_image", referer)
         lastmodified, medianame, mimetype, filedata = asm3.media.get_media_file_data(dbo, mediaid)
         if medianame == "": return ("text/plain", 0, 0, "ERROR: Invalid mediaid")
         return set_cached_response(cache_key, account, mimetype, 86400, 86400, filedata)
 
-    elif method =="media_file":
+    elif method == "media_file":
         lastmodified, medianame, mimetype, filedata = asm3.media.get_media_file_data(dbo, mediaid)
         if medianame == "": return ("text/plain", 0, 0, "ERROR: Invalid mediaid")
         return set_cached_response(cache_key, account, mimetype, 86400, 86400, filedata)
+    
+    elif method == "json_adopted_animals":
+        if post.date("fromdate") is None or post.date("todate") is None:
+            asm3.al.error("json_adopted_animals failed, %s/%s not valid dates" % (post["fromdate"], post["todate"]), "service.handler", dbo)
+            return ("text/plain", 0, 0, "ERROR: Invalid fromdate/todate values")
+        else:
+            asm3.users.check_permission_map(l, user.SUPERUSER, securitymap, asm3.users.VIEW_MOVEMENT)
+            rs = asm3.movement.get_movements_two_dates(dbo, post.date("fromdate"), post.date("todate"), 
+                movementtype = asm3.movement.ADOPTION, limit = asm3.configuration.record_search_limit(dbo))
+            return set_cached_response(cache_key, account, "application/json", 1800, 1800, asm3.utils.json(rs))
+        
+    elif method == "xml_adopted_animals":
+        if post.date("fromdate") is None or post.date("todate") is None:
+            asm3.al.error("xml_adopted_animals failed, %s/%s not valid dates" % (post["fromdate"], post["todate"]), "service.handler", dbo)
+            return ("text/plain", 0, 0, "ERROR: Invalid fromdate/todate values")
+        else:
+            asm3.users.check_permission_map(l, user.SUPERUSER, securitymap, asm3.users.VIEW_MOVEMENT)
+            rs = asm3.movement.get_movements_two_dates(dbo, post.date("fromdate"), post.date("todate"), 
+                movementtype = asm3.movement.ADOPTION, limit = asm3.configuration.record_search_limit(dbo))
+            return set_cached_response(cache_key, account, "application/xml", 1800, 1800, asm3.html.xml(rs))
 
     elif method == "json_adoptable_animal":
         if asm3.utils.cint(animalid) == 0:
@@ -546,6 +674,10 @@ def handler(post: PostedData, path: str, remoteip: str, referer: str, useragent:
         return set_cached_response(cache_key, account, "text/html", 10800, 1800, \
             asm3.publishers.html.get_deceased_animals(dbo, daysdeceased=post.integer("days"), style=post["template"], \
                 speciesid=post.integer("speciesid"), animaltypeid=post.integer("animaltypeid"), orderby=post["order"]))
+    
+    elif method == "html_events":
+        return set_cached_response(cache_key, account, "text/html", 3600, 3600, 
+            asm3.event.get_events_html(dbo, post.integer("count"), template=post["template"]))
 
     elif method == "html_flagged_animals":
         if post["flag"] == "":
@@ -559,6 +691,11 @@ def handler(post: PostedData, path: str, remoteip: str, referer: str, useragent:
     elif method == "html_held_animals":
         return set_cached_response(cache_key, account, "text/html", 1800, 1800, \
             asm3.publishers.html.get_held_animals(dbo, style=post["template"], \
+                speciesid=post.integer("speciesid"), animaltypeid=post.integer("animaltypeid"), orderby=post["order"]))
+    
+    elif method == "html_stray_animals":
+        return set_cached_response(cache_key, account, "text/html", 1800, 1800, \
+            asm3.publishers.html.get_stray_animals(dbo, style=post["template"], \
                 speciesid=post.integer("speciesid"), animaltypeid=post.integer("animaltypeid"), orderby=post["order"]))
 
     elif method == "json_adoptable_animals_xp":
@@ -714,6 +851,16 @@ def handler(post: PostedData, path: str, remoteip: str, referer: str, useragent:
         sa = asm3.animal.get_shelter_animals(dbo)
         if strip_personal: sa = strip_personal_data(sa)
         return set_cached_response(cache_key, account, "application/xml", 3600, 3600, asm3.html.xml(sa))
+    
+    elif method == "json_stray_animals":
+        asm3.users.check_permission_map(l, user.SUPERUSER, securitymap, asm3.users.VIEW_ANIMAL)
+        rs = asm3.animal.get_animals_stray(dbo)
+        return set_cached_response(cache_key, account, "application/json", 3600, 3600, asm3.utils.json(rs))
+
+    elif method == "xml_stray_animals":
+        asm3.users.check_permission_map(l, user.SUPERUSER, securitymap, asm3.users.VIEW_ANIMAL)
+        rs = asm3.animal.get_animals_stray(dbo)
+        return set_cached_response(cache_key, account, "application/json", 3600, 3600, asm3.html.xml(rs))
 
     elif method == "rss_timeline":
         asm3.users.check_permission_map(l, user.SUPERUSER, securitymap, asm3.users.VIEW_ANIMAL)

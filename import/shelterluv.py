@@ -22,7 +22,7 @@ The following files are needed:
     Events - Vaccines Administered -> vaccinations.csv
 """
 
-PATH = "/home/robin/tmp/asm3_import_data/sluv_cs2772"
+PATH = "/home/robin/tmp/asm3_import_data/sluv_jt3180"
 
 DEFAULT_BREED = 261 # default to dsh
 DATE_FORMAT = "MDY" # Normally MDY
@@ -206,7 +206,7 @@ for d in asm.csv_to_list("%s/intake.csv" % PATH):
     if "Intake From Name" in d and d["Intake From Name"] != "" and d["Intake From Name"] in ppo:
         linkperson = ppo[d["Intake From Name"]].ID
     # Age
-    if "Age (Months)" in d:
+    if "Age (Months)" in d and a.DateBroughtIn == a.DateOfBirth:
         a.DateOfBirth = asm.subtract_days(a.DateBroughtIn, 30 * asm.atoi(asm.cint(d["Age (Months)"])))
     # Location
     if "Location" in d and d["Location"] != "":
@@ -217,16 +217,20 @@ for d in asm.csv_to_list("%s/intake.csv" % PATH):
     if intaketype == "Transfer In":
         a.IsTransfer = 1
         a.EntryReasonID = 15
+        a.EntryTypeID = 3
         a.BroughtInByOwnerID = linkperson
     elif intaketype == "Stray":
         a.EntryReasonID = 7
+        a.EntryTypeID = 2
         a.BroughtInByOwnerID = linkperson
     elif intaketype == "Surrender":
         a.EntryReasonID = 17 
+        a.EntryTypeID = 1
         a.OriginalOwnerID = linkperson
         a.BroughtInByOwnerID = linkperson
     elif intaketype == "Return":
         a.EntryReasonID = 17 # Surrender
+        a.EntryTypeID = 1
         a.OriginalOwnerID = linkperson
         a.BroughtInByOwnerID = linkperson
     elif intaketype == "Service In":
@@ -236,6 +240,7 @@ for d in asm.csv_to_list("%s/intake.csv" % PATH):
         a.BroughtInByOwnerID = linkperson
     else:
         a.EntryReasonID = 17 # Surrender
+        a.EntryTypeID = 1
         a.OriginalOwnerID = linkperson
         a.BroughtInByOwnerID = linkperson
     a.ReasonForEntry = "%s / %s" % ( intaketype, subtype )

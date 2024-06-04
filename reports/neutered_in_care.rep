@@ -2,13 +2,13 @@ Neutered In Care
 ###
 Auditing
 ###
-34019/Any rev01
+34019/Any rev02
 ###
 Animals entering the shelter between two dates identifying whether they were neutered in the care of the shelter
 ###
 en
 ###
-SELECT a.MostRecentEntryDate, a.ShelterCode, a.AnimalName, ay.AnimalType, s.SpeciesName, 
+SELECT a.MostRecentEntryDate, a.ShelterCode, a.AnimalName, a.ID AS AID, ay.AnimalType, s.SpeciesName, 
 CASE WHEN a.Neutered = 1 THEN 'Yes' ELSE 'No' END AS Neutered, a.NeuteredDate, a.ActiveMovementDate,
 CASE 
 WHEN a.Archived = 1 AND a.NeuteredDate >= a.DateBroughtIn AND a.NeuteredDate  <= a.ActiveMovementDate THEN 'Yes' 
@@ -25,6 +25,7 @@ ORDER BY a.MostRecentEntryDate
 ###
 $$HEADER
 <table border="1">
+<thead>
 <tr>
 <th>Entered</th>
 <th>Code</th>
@@ -35,13 +36,15 @@ $$HEADER
 <th>Left</th>
 <th>Neutered in care?</th>
 </tr>
+</thead>
+<tbody>
 HEADER$$
 
 $$BODY
 <tr>
 <td>$MOSTRECENTENTRYDATE</td>
 <td>$SHELTERCODE</td>
-<td>$ANIMALNAME</td>
+<td><a target="_blank" href="animal?id=$AID">$ANIMALNAME</a></td>
 <td>$ANIMALTYPE</td>
 <td>$SPECIESNAME</td>
 <td>$NEUTERED $NEUTEREDDATE $OWNERNAME</td>
@@ -51,5 +54,6 @@ $$BODY
 BODY$$
 
 $$FOOTER
+</tbody>
 </table>
 FOOTER$$

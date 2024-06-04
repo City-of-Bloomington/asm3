@@ -6,7 +6,7 @@ import asm3.i18n
 import asm3.users
 
 from asm3.sitedefs import ADMIN_EMAIL, BASE_URL, DISK_CACHE, MULTIPLE_DATABASES, SMTP_SERVER, FROM_ADDRESS, HTML_TO_PDF, URL_NEWS
-from asm3.typehints import bytes_or_str, Any, Callable, Database, Dict, List, Results, Tuple, Union
+from asm3.typehints import bytes_or_str, Any, Callable, Database, Dict, Generator, List, Results, Tuple, Union
 
 import web062 as web
 
@@ -407,6 +407,10 @@ class ImgSrcHTMLParser(HTMLParser):
     """
     links: List[str] = []
 
+    def __init__(self) -> None:
+        HTMLParser.__init__(self)
+        self.links = []
+
     def handle_starttag(self, tag: str, attrs: Dict[str, str]) -> None:
         if tag == "img":
             for k, v in attrs:
@@ -542,20 +546,6 @@ def cmd(c: str, shell: bool = False) -> Tuple[int, str]:
     except subprocess.CalledProcessError as e:
         return (e.returncode, e.output)
 
-def cache_sequence(dbo: Database, name: str, vsql: str) -> int:
-    """
-    Returns the next value in an incrementing sequence with "name".
-    Uses memcache incr to handle state among processes.
-    vsql: A query that returns the next value for this sequence from the database.
-          If the cache is empty, this value is returned+1 and the cache initialised.
-    """
-    cache_key = "%s_sq_%s" % (dbo.database, name)
-    seq = asm3.cachemem.increment(cache_key)
-    if seq is None:
-        seq = 1 + dbo.query_int(vsql)
-        asm3.cachemem.put(cache_key, seq, 86400)
-    return seq
-
 def deduplicate_list(l: List) -> List:
     """
     Removes duplicates from the list l and returns a new list
@@ -613,7 +603,7 @@ def json_handler(obj: Any) -> str:
         return "null"
     elif hasattr(obj, "isoformat"):
         return obj.isoformat()
-    elif type(obj) == datetime.timedelta:
+    elif isinstance(obj, datetime.timedelta):
         hours, remain = divmod(obj.seconds, 3600)
         minutes, seconds = divmod(remain, 60)
         return "%02d:%02d:%02d" % (hours, minutes, seconds)
@@ -631,7 +621,7 @@ def json(obj: Any, readable: bool = False) -> str:
     Takes a python object and serializes it to JSON.
     None objects are turned into "null"
     datetime objects are turned into string isoformat for use with js Date.
-    This function switches </ for <\/ in output to prevent HTML tags in any content
+    This function switches </ for <\\/ in output to prevent HTML tags in any content
         from breaking out of a script tag.
     readable: If True, line breaks and padding are added to make it human-readable
     """
@@ -643,38 +633,6 @@ def json(obj: Any, readable: bool = False) -> str:
 def parse_qs(s: str) -> Dict[str, str]:
     """ Given a querystring, parses it and returns a dict of elements """
     return dict(urllib.parse.parse_qsl(s))
-
-def address_first_line(address: str) -> str:
-    """
-    Returns the first line of an address
-    """
-    if address is None: return ""
-    bits = address.split("\n")
-    if len(bits) > 0:
-        return bits[0]
-    return ""
-
-def address_house_number(address: str) -> str:
-    """
-    Returns the house number from an address
-    """
-    fl = address_first_line(address)
-    if fl == "": return ""
-    bits = fl.split(" ")
-    if is_numeric(bits[0]):
-        return bits[0]
-    return ""
-
-def address_street_name(address: str) -> str:
-    """
-    Returns the street name from an address line
-    """
-    fl = address_first_line(address)
-    if fl == "": return ""
-    bits = fl.split(" ", 1)
-    if len(bits) == 2:
-        return bits[1]
-    return ""
 
 def rss(inner: str, title: str, link: str, description: str) -> str:
     """ Renders an RSS document """
@@ -766,7 +724,7 @@ def strip_duplicate_spaces(s: str) -> str:
     Removes duplicate spaces from a string and strips, eg: ' Bad   Flag' becomes 'Bad Flag'
     """
     if s is None: return ""
-    return " ".join(re.split("\s+", s)).strip()
+    return " ".join(re.split(r"\s+", s)).strip()
 
 def strip_html_tags(s: str) -> str:
     """
@@ -854,6 +812,19 @@ def uuid_str() -> str:
 def uuid_b64() -> str:
     """ Returns a type 4 UUID as a base64 encoded string (shorter) """
     return base64encode(uuid.uuid4().bytes)
+
+def epoch_b32() -> str:
+    """
+    Generate a unique(ish) number based on base36 encoding of the epoch.
+    This is good for getting a pretty unique, but short value.
+    """
+    number = int(time.time())
+    alphabet, base36 = ['0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ', '']
+    while number:
+        number, i = divmod(number, 36)
+        base36 = alphabet[i] + base36
+    return base36
+
 
 def pbkdf2_hash_hex(plaintext: str, salt: str = "", algorithm: str = "sha1", iterations: int = 1000) -> str:
     """ Returns a hex pbkdf2 hash of the plaintext given. 
@@ -960,6 +931,24 @@ def escape_tinymce(content: str) -> str:
     c = c.replace(">", "&gt;")
     return c
 
+def qr_datauri(data: str, sizespec: str = "150x150") -> str:
+    """
+    Generates a QR code for data and returns it as a data-uri
+    """
+    import qrcode
+    ws, hs = sizespec.split("x")
+    w = int(ws)
+    h = int(hs)
+    size = w, w
+    if h > w: size = h, h
+    img = qrcode.make(data)
+    img.thumbnail(size)
+    output = asm3.utils.bytesio()
+    img.save(output, "PNG")
+    pngdata = output.getvalue()
+    output.close()
+    return "data:image/png;base64," + base64encode(pngdata)
+
 def csv_parse(s: str) -> List[Dict]:
     """
     Reads CSV data from a unicode string "s" 
@@ -1010,12 +999,11 @@ def csv_parse(s: str) -> List[Dict]:
     return rows
 
 def csv(l: str, rows: Results, cols: List[str] = None, includeheader: bool = True, 
-        titlecaseheader: bool = False, lowercaseheader: bool = False, renameheader: str = "") -> str:
+        titlecaseheader: bool = False, lowercaseheader: bool = False, renameheader: str = "") -> bytes:
     """
     Creates a CSV file from a set of resultset rows. If cols has been 
-    supplied as a list of strings, fields will be output in that
-    order.
-    The file is constructed as a list of unicode strings and returned as a utf-8 encoded byte string.
+    supplied as a list of strings, fields will be output in that order.
+    The file is returned as a utf-8 encoded byte string.
     l:  locale (used for formatting currencies and dates)
     rows: list of dict result rows
     cols: list of column headings, if None uses the result column names
@@ -1024,13 +1012,32 @@ def csv(l: str, rows: Results, cols: List[str] = None, includeheader: bool = Tru
     lowercaseheader: if True lower cases the header row
     renameheader: A comma separated list of find=replace values to rewrite column headers
     """
-    if rows is None or len(rows) == 0: return "\ufeff".encode("utf-8")
-    lines = []
+    buffer = []
+    for x in csv_generator(l, rows, cols, includeheader, titlecaseheader, lowercaseheader, renameheader):
+        buffer.append(x)
+    return "".join(buffer).encode("utf-8")
+
+def csv_generator(l: str, rows: Results, cols: List[str] = None, includeheader: bool = True, 
+        titlecaseheader: bool = False, lowercaseheader: bool = False, renameheader: str = "") -> Generator[str, None, None]:
+    """
+    Creates a CSV file from a set of resultset rows. If cols has been 
+    supplied as a list of strings, fields will be output in that order.
+    The file is returned as unicode. It is upto the caller to encode data appropriately. 
+    If this generator function is the return value from an endpoint, web.py will handle encoding as utf-8.
+    l:  locale (used for formatting currencies and dates)
+    rows: list of dict result rows
+    cols: list of column headings, if None uses the result column names
+    includeheader: if True writes the header row
+    titlecaseheader: if True title cases the header row
+    lowercaseheader: if True lower cases the header row
+    renameheader: A comma separated list of find=replace values to rewrite column headers
+    """
+    yield "\ufeff" # UTF-8 BOM, Excel can mangle CSV files without it
     def writerow(row):
         line = []
         for r in row:
             line.append("\"%s\"" % r)
-        lines.append(",".join(line))
+        return ",".join(line) + "\n"
     if cols is None:
         cols = []
         for k in rows[0].keys():
@@ -1055,7 +1062,7 @@ def csv(l: str, rows: Results, cols: List[str] = None, includeheader: bool = Tru
                 if not match:
                     rout.append(c)
             outputcols = rout
-        writerow(outputcols)
+        yield writerow(outputcols)
     for r in rows:
         rd = []
         for c in cols:
@@ -1077,9 +1084,82 @@ def csv(l: str, rows: Results, cols: List[str] = None, includeheader: bool = Tru
                 rd.append(r[c].replace("\"", "''")) # Escape any double quotes in strings
             else:
                 rd.append(r[c])
-        writerow(rd)
-    # Manually include a UTF-8 BOM to prevent Excel mangling files
-    return ("\ufeff" + "\n".join(lines)).encode("utf-8")
+        yield writerow(rd)
+
+def excel(l: str, rows: Results, cols: List[str] = None, includeheader: bool = True, 
+        titlecaseheader: bool = False, lowercaseheader: bool = False, renameheader: str = "") -> str:
+    """
+    Creates an Excel sheet from a set of resultset rows. If cols has been 
+    supplied as a list of strings, fields will be output in that order.
+    The file is constructed as a list of unicode strings and returned as a utf-8 encoded byte string.
+    l:  locale (used for formatting currencies and dates)
+    rows: list of dict result rows
+    cols: list of column headings, if None uses the result column names
+    includeheader: if True writes the header row
+    titlecaseheader: if True title cases the header row
+    lowercaseheader: if True lower cases the header row
+    renameheader: A comma separated list of find=replace values to rewrite column headers
+    """
+    from openpyxl import Workbook
+    wb = Workbook()
+    ws = wb.active
+    def writerow(rowdata: List[Any], rownumber: int, isheader: bool = False):
+        """ Outputs the cells for a row. isheader can be used for formatting in future """
+        for i, r in enumerate(rowdata, 1):
+            ws.cell(row=rownumber, column=i, value=r)
+    if cols is None:
+        cols = []
+        for k in rows[0].keys():
+            cols.append(k)
+        cols = sorted(cols)
+    if includeheader:
+        outputcols = cols
+        if titlecaseheader: 
+            outputcols = [ c.title() for c in cols ]
+        if lowercaseheader:
+            outputcols = [ c.lower() for c in cols ]
+        if renameheader != "":
+            rout = []
+            for c in outputcols: # can rewrite cols we just titlecased
+                match = False
+                for rh in renameheader.split(","):
+                    find, replace = rh.split("=")
+                    if c == find:
+                        rout.append(replace)
+                        match = True
+                        break
+                if not match:
+                    rout.append(c)
+            outputcols = rout
+        writerow(outputcols, 1, True)
+    for rownumber, r in enumerate(rows, 2):
+        rd = []
+        for c in cols:
+            if c not in r: continue # skip if this row doesn't have the column
+            if is_currency(c):
+                rd.append(cint(r[c]) / 100.0)
+            elif is_date(r[c]):
+                timeportion = "00:00:00"
+                dateportion = ""
+                try:
+                    dateportion = asm3.i18n.python2display(l, r[c])
+                    timeportion = asm3.i18n.format_time(r[c])
+                except:
+                    pass # Don't stop the show for bad dates/times
+                if timeportion != "00:00:00": # include time if non-midnight
+                    dateportion = "%s %s" % (dateportion, timeportion)
+                rd.append(dateportion)
+            elif is_str(r[c]):
+                rd.append(r[c])
+            else:
+                rd.append(r[c])
+        writerow(rd, rownumber)
+    # Return the excel data as a byte string
+    with tempfile.NamedTemporaryFile() as f:
+        wb.save(f.name)
+        f.seek(0)
+        data = f.read()
+    return data
 
 def fix_relative_document_uris(dbo: Database, s: str) -> str:
     """
@@ -1138,47 +1218,77 @@ def generator2file(outfile: str, fn: Callable, *args: Any) -> None:
             f.write(x)
 
 def substitute_tags(searchin: str, tags: Dict[str, str], escape_html: bool = True, 
-                    opener: str = "&lt;&lt;", closer: str = "&gt;&gt;", crToBr: bool = True) -> str:
+                    opener: str = "&lt;&lt;", closer: str = "&gt;&gt;", 
+                    cr_to_br: bool = True, remove_unmatched = True) -> str:
     """
     Substitutes the dictionary of tags in "tags" for any found in "searchin". 
     opener and closer: denote the start/end of a tag,
     escape_html: if true, then <, > and & are turned into HTML entities
-    crToBr: if true, replace line breaks in values with HTML br tags
+    cr_to_br: if true, replace line breaks in values with HTML br tags
+    remove_unmatched: 
+        True: replaces everything between any opener and closer
+            with an empty string. This can cause HTML and XML documents to be malformed
+            if there are tags that start in the data and end outside it.
+            It performs very well though because it assumes only the tag is between
+            the opener and closer. It does not have to iterate the tags collection to test.
+        False: Only finds/replaces the tag between the opener and closer, keeping
+            anything around the tag intact, and leaving the tag if it did not match.
+            This can be a visual indicator that the tag was entered wrong.
+            It does not perform as well because it has to iterate the tag collection
+            every time a tag is found.
     """
+    def _get_value(v):
+        """ Does any processing needed on tag value v """
+        v = str(v)
+        # Escape <>& unless the replacement value is an
+        # image, URL or already contains HTML entities
+        if escape_html and \
+            not v.lower().startswith("<img") and \
+            not v.lower().find("&#") != -1 and \
+            not v.lower().find("/>") != -1 and \
+            not v.lower().startswith("<table") and \
+            not v.lower().startswith("http") and \
+            not v.lower().startswith("image?"):
+            v = v.replace("&", "&amp;")
+            v = v.replace("<", "&lt;")
+            v = v.replace(">", "&gt;")
+        # Switch linebreaks if requested
+        if cr_to_br: 
+            v = v.replace("\r\n", "<br>")
+            v = v.replace("\n", "<br>")
+        return v
     if not escape_html:
         opener = opener.replace("&lt;", "<").replace("&gt;", ">")
         closer = closer.replace("&lt;", "<").replace("&gt;", ">")
-
     s = searchin
     sp = s.find(opener)
     while sp != -1:
         ep = s.find(closer, sp + len(opener))
-        if ep != -1:
+        if ep != -1 and remove_unmatched:
             matchtag = s[sp + len(opener):ep].upper()
             newval = ""
-            if matchtag in tags:
-                newval = str(tags[matchtag])
-                # Escape <>& unless the replacement value is an
-                # image, URL or already contains HTML entities
-                if escape_html and \
-                    not newval.lower().startswith("<img") and \
-                    not newval.lower().find("&#") != -1 and \
-                    not newval.lower().find("/>") != -1 and \
-                    not newval.lower().startswith("<table") and \
-                    not newval.lower().startswith("http") and \
-                    not newval.lower().startswith("image?"):
-                    newval = newval.replace("&", "&amp;")
-                    newval = newval.replace("<", "&lt;")
-                    newval = newval.replace(">", "&gt;")
-                # Switch linebreaks if requested
-                if crToBr: 
-                    newval = newval.replace("\r\n", "<br>")
-                    newval = newval.replace("\n", "<br>")
+            if matchtag in tags: newval = _get_value(tags[matchtag])
             s = "%s%s%s" % ( s[0:sp], newval, s[ep + len(closer):] )
-            sp = s.find(opener, sp)
+        elif ep != -1 and not remove_unmatched:
+            tagstr = s[sp + len(opener):ep]
+            #print("start %s, end %s, '%s'" % (sp, ep, tagstr))
+            for tag, v in tags.items():
+                i = -1
+                if tagstr.upper() == tag: 
+                    i = 0
+                elif tagstr.upper().endswith(f">{tag}"): 
+                    i = len(tagstr) - len(tag)
+                elif tagstr.upper().find(f">{tag}<") != -1: 
+                    i = tagstr.upper().find(f">{tag}<")
+                if i != -1:
+                    tagstr = tagstr[:i] + _get_value(v) + tagstr[i + len(tag):]
+                    #print("found tag '%s' at %s, new sub value: '%s'" % (tag, i, tagstr))
+                    break
+            s = "%s%s%s" % ( s[0:sp], tagstr, s[ep + len(closer):] )
         else:
             # No end marker for this tag, stop processing
             break
+        sp = s.find(opener, sp)
     return s
 
 def md5_hash_hex(s: str) -> str:
@@ -1226,6 +1336,9 @@ def get_url(url: str, headers: Dict = {}, cookies: Dict = {}, timeout: float = N
     # requests timeout is seconds/float, but some may call this with integer ms instead so convert
     if timeout is not None and timeout > 1000: timeout = timeout / 1000.0
     try:
+        # handle file:// urls since requests module doesn't
+        if url.startswith("file://"):
+            return { "status": 200, "response": read_text_file(url[7:]), "headers": {}, "cookies": {}, "requestheaders": {}, "requestbody": "" }
         r = requests.get(url, headers = headers, cookies=cookies, timeout=timeout, params=params)
     except Exception as err:
         if exceptions: raise err
@@ -1241,6 +1354,9 @@ def get_url_bytes(url: str, headers: Dict = {}, cookies: Dict = {}, timeout: flo
     # requests timeout is seconds/float, but some may call this with integer ms instead so convert
     if timeout is not None and timeout > 1000: timeout = timeout / 1000.0
     try:
+        # handle file:// urls since requests module doesn't
+        if url.startswith("file://"):
+            return { "status": 200, "response": read_binary_file(url[7:]), "headers": {}, "cookies": {}, "requestheaders": {}, "requestbody": "" }
         r = requests.get(url, headers=headers, cookies=cookies, timeout=timeout, allow_redirects=True, stream=True)
     except Exception as err:
         if exceptions: raise err
@@ -1487,8 +1603,6 @@ def html_to_pdf_cmd(dbo: Database, htmldata: str) -> bytes:
     htmldata = re.sub(r'<iframe.*>', '', htmldata, flags=re.I)
     htmldata = re.sub(r'<link.*>', '', htmldata, flags=re.I)
     htmldata = strip_script_tags(htmldata)
-    # Fix up any google QR codes where a protocol-less URI has been used
-    htmldata = htmldata.replace("\"//chart.googleapis.com", "\"http://chart.googleapis.com")
     # Switch relative document uris to absolute service based calls
     htmldata = fix_relative_document_uris(dbo, htmldata)
     # Use temp files
@@ -1552,8 +1666,6 @@ def html_to_pdf_pisa(dbo: Database, htmldata: str) -> bytes:
     htmldata = re.sub(r'<iframe.*>', '', htmldata, flags=re.I)
     htmldata = re.sub(r'<link.*>', '', htmldata, flags=re.I)
     htmldata = strip_script_tags(htmldata)
-    # Fix up any google QR codes where a protocol-less URI has been used
-    htmldata = htmldata.replace("\"//chart.googleapis.com", "\"http://chart.googleapis.com")
     # Switch relative document uris to absolute service based calls
     htmldata = fix_relative_document_uris(dbo, htmldata)
     # Do the conversion
@@ -1719,7 +1831,7 @@ def is_smcom_smtp(dbo: Database) -> bool:
 
 def is_valid_email_address(s: str) -> bool:
     """ Returns True if s is a valid email address """
-    regex = "^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$"
+    regex = r"^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$"
     return (re.search(regex, s) is not None)
 
 def parse_email_address(s: str) -> Tuple[str, str]:
@@ -1734,7 +1846,8 @@ def strip_email_address(s: str) -> str:
 def send_email(dbo: Database, replyadd: str, toadd: str, ccadd: str = "", bccadd: str = "", 
                subject: str = "", body: str = "", contenttype: str = "plain", 
                attachments: List[Tuple[str, str, bytes]] = [], 
-               exceptions: bool = True, bulk: bool = False, retries: int = 1) -> bool:
+               exceptions: bool = True, bulk: bool = False, 
+               fromoverride: bool = True, retries: int = 1) -> bool:
     """
     Sends an email.
     replyadd is a single email address and controls the Reply-To header
@@ -1748,6 +1861,10 @@ def send_email(dbo: Database, replyadd: str, toadd: str, ccadd: str = "", bccadd
     exceptions: If True, throws exceptions due to sending problems
     bulk: If True, set the Precedence: Bulk header 
           (indicates message type and attempts to stop backscatter)
+    fromoverride: If True, allows the FROM header to be overridden with
+          the reply address - assuming both configuration options to
+          do that are on. If False, the FROM header cannot be overridden
+          (useful if the reply address is going to be one you don't own)
     retries: If >1, the number of times to wait and retry if an 
           SMTP error occurs (incompatible with exceptions = True)
 
@@ -1812,18 +1929,20 @@ def send_email(dbo: Database, replyadd: str, toadd: str, ccadd: str = "", bccadd
     if contenttype == "html":
         body = fix_relative_document_uris(dbo, body)
 
-    # Build the from address
-    # If we have an SMTPOverride, use the from address the user configured.
-    # Otherwise, use the sitedef to construct the from address
-    fromadd = ""
+    # Use the sitedef to construct the from address
+    fromadd = FROM_ADDRESS
+    fromadd = fromadd.replace("{organisation}", asm3.configuration.organisation(dbo))
+    fromadd = fromadd.replace("{alias}", dbo.alias)
+    fromadd = fromadd.replace("{database}", dbo.database)
+    fromadd = fromadd.replace(",", "") # commas blow up address parsing
+
+    # If we have an SMTPOverride, set the from header to the main email instead
     if asm3.configuration.smtp_override(dbo):
         fromadd = asm3.configuration.email(dbo)
-    else:
-        fromadd = FROM_ADDRESS
-        fromadd = fromadd.replace("{organisation}", asm3.configuration.organisation(dbo))
-        fromadd = fromadd.replace("{alias}", dbo.alias)
-        fromadd = fromadd.replace("{database}", dbo.database)
-        fromadd = fromadd.replace(",", "") # commas blow up address parsing
+        # If the option is on to use the reply address as FROM header is on, and
+        # the caller says it's ok, do that.
+        if fromoverride and asm3.configuration.smtp_reply_as_from(dbo) and replyadd != "":
+            fromadd = replyadd
 
     # Make sure we have a reply address and check for any problems, such as unclosed address
     if replyadd is None or replyadd == "":
@@ -1965,7 +2084,7 @@ def send_bulk_email(dbo: Database, replyadd: str, subject: str, body: str, rows:
     """
     def do_send():
         for r in rows:
-            ssubject = substitute_tags(subject, r, False, opener = "<<", closer = ">>", crToBr = False)
+            ssubject = substitute_tags(subject, r, False, opener = "<<", closer = ">>", cr_to_br = False)
             sbody = substitute_tags(body, r)
             toadd = r["EMAILADDRESS"]
             if toadd is None or toadd.strip() == "": continue

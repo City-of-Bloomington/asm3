@@ -10,7 +10,6 @@ import asm3.users
 import asm3.utils
 
 from asm3.i18n import _, translate, get_locales, now, python2unix, real_locale
-from asm3.sitedefs import QR_IMG_SRC
 from asm3.sitedefs import BASE_URL, LOCALE, ROLLUP_JS, SERVICE_URL
 from asm3.sitedefs import ASMSELECT_CSS, ASMSELECT_JS, BASE64_JS, BOOTSTRAP_JS, BOOTSTRAP_CSS, BOOTSTRAP_GRID_CSS, BOOTSTRAP_ICONS_CSS, CODEMIRROR_CSS, CODEMIRROR_JS, CODEMIRROR_BASE, FLOT_JS, FLOT_PIE_JS, FULLCALENDAR_JS, FULLCALENDAR_CSS, HTMLFTP_PUBLISHER_ENABLED, JQUERY_JS, JQUERY_UI_JS, JQUERY_UI_CSS, MOMENT_JS, MOUSETRAP_JS, PATH_JS, QRCODE_JS, SIGNATURE_JS, TABLESORTER_CSS, TABLESORTER_JS, TABLESORTER_WIDGETS_JS, TIMEPICKER_CSS, TIMEPICKER_JS, TINYMCE_5_JS
 from asm3.typehints import Any, ColumnList, Database, Dict, List, MenuItems, MenuStructure, ResultRow, Results, Session
@@ -51,7 +50,8 @@ def asm_script_tag(filename: str) -> str:
     """
     standalone = [ "animal_view_adoptable.js", "document_edit.js", 
         "mobile.js", "mobile2.js", "mobile_login.js", "mobile_photo_uploader.js", "mobile_report.js", "mobile_sign.js", 
-        "onlineform_extra.js", "report_toolbar.js", "service_sign_document.js", "service_checkout_adoption.js" ]
+        "onlineform_extra.js", "report_toolbar.js", "service_sign_document.js", "service_checkout_adoption.js", 
+        "service_checkout_licence.js" ]
     if ROLLUP_JS and filename in standalone and filename.find("/") == -1: filename = f"compat/{filename}"
     return script_tag(f"static/js/{filename}", addbuild=True)
 
@@ -64,7 +64,8 @@ def asm_script_tags(path: str) -> str:
         "header_additional.js", "header_edit_header.js" ]
     standalone = [ "animal_view_adoptable.js", "document_edit.js", 
         "mobile.js", "mobile2.js", "mobile_login.js", "mobile_photo_uploader.js", "mobile_report.js", "mobile_sign.js", 
-        "onlineform_extra.js", "report_toolbar.js", "service_sign_document.js", "service_checkout_adoption.js" ]
+        "onlineform_extra.js", "report_toolbar.js", "service_sign_document.js", "service_checkout_adoption.js",
+        "service_checkout_licence.js" ]
     # Read our available js files and append them to this list, not including ones
     # we've explicitly added above (since they are in correct load order)
     # or those we should exclude because they are standalone files
@@ -99,10 +100,11 @@ def xml(results: Results) -> str:
         s += cr
     return '<?xml version="1.0" standalone="yes" ?>\n<xml>\n' + s + '\n</xml>'
 
-def table(results: Results) -> str:
+def table(results: Results, xssProtect = True) -> str:
     """
     Takes a list of dictionaries and converts them into
     an HTML thead and tbody string.
+    xssProtect: escape angle brackets if true
     """
     if len(results) == 0: return ""
     s = "<thead>\n<tr>\n"
@@ -113,7 +115,10 @@ def table(results: Results) -> str:
     for row in results:
         s += "<tr>"
         for c in cols:
-            s += "<td>%s</td>\n" % str(row[c])
+            if xssProtect:
+                s += "<td>%s</td>\n" % escape_angle(str(row[c]))
+            else:
+                s += "<td>%s</td>\n" % str(row[c])
         s += "</tr>"
     s += "</tbody>\n"
     return s
@@ -598,7 +603,7 @@ def menu_structure(l: str, publisherlist: Dict, reports: MenuItems, mailmerges: 
             ( "", "", "tagclinic", "--break", "", "" ),
             (asm3.users.VIEW_CLINIC, "", "tagclinic", "--cat", "asm-icon-health", _("Clinic", l) ),
             (asm3.users.VIEW_CLINIC, "", "tagclinic", "clinic_waitingroom", "asm-icon-person", _("Waiting Room", l) ),
-            (asm3.users.VIEW_CLINIC, "", "tagclinic", "clinic_consultingroom", "asm-icon-users", _("Consulting Room", l) ),
+            (asm3.users.VIEW_CONSULTING_ROOM, "", "tagclinic", "clinic_consultingroom", "asm-icon-users", _("Consulting Room", l) ),
             (asm3.users.VIEW_CLINIC, "", "tagclinic", "clinic_calendar", "asm-icon-diary", _("Clinic Calendar", l) ),
         )),
         ("", "financial", _("Financial", l), (
@@ -688,6 +693,7 @@ def json_animalfindcolumns(dbo: Database) -> ColumnList:
         ( "ReasonNO", _("Reason Not From Owner", l) ),
         ( "DateBroughtIn", _("Date Brought In", l) ),
         ( "EntryReasonID", _("Entry Reason Category", l) ),
+        ( "EntryTypeID", _("Entry Type", l) ),
         ( "HealthProblems", _("Health Problems", l) ),
         ( "ActiveDietName", _("Diet", l) ),
         ( "PTSReason", _("Death Comments", l) ),
@@ -819,6 +825,7 @@ def json_eventfindcolumns(dbo: Database) -> ColumnList:
 def json_incidentfindcolumns(dbo: Database) -> ColumnList:
     l = dbo.locale
     cols = [ 
+        ( "IncidentCode", _("Code", l) ),
         ( "IncidentType", _("Incident Type", l) ),
         ( "IncidentNumber", _("Incident Number", l) ),
         ( "IncidentDateTime", _("Incident Date/Time", l) ),
@@ -898,7 +905,10 @@ def json_waitinglistcolumns(dbo: Database) -> ColumnList:
         ( "CreatedBy", _("Created By", l) ),
         ( "Rank", _("Rank", l) ),
         ( "SpeciesID", _("Species", l) ),
+        ( "BreedID", _("Breed", l) ),
+        ( "Sex", _("Sex", l) ),
         ( "Size", _("Size", l) ),
+        ( "DateOfBirth", _("Date Of Birth", l) ),
         ( "DatePutOnList", _("Date Put On", l) ),
         ( "TimeOnList", _("Time On List", l) ),
         ( "OwnerName", _("Name", l) ),
@@ -910,12 +920,15 @@ def json_waitinglistcolumns(dbo: Database) -> ColumnList:
         ( "WorkTelephone", _("Work", l) ),
         ( "MobileTelephone", _("Cell", l) ),
         ( "EmailAddress", _("Email", l) ),
+        ( "MicrochipNumber", _("Microchip", l) ),
+        ( "AnimalName", _("Animal Name", l) ),
         ( "AnimalDescription", _("Description", l) ),
         ( "ReasonForWantingToPart", _("Reason", l) ),
         ( "CanAffordDonation", _("Donation?", l) ),
         ( "Urgency", _("Urgency", l) ),
         ( "DateRemovedFromList", _("Date Removed", l) ),
         ( "ReasonForRemoval", _("Removal Reason", l) ),
+        ( "WaitingListRemovalID", _("Removal Category", l) ),
         ( "Comments", _("Comments") )
         ]
     fd = asm3.additional.get_field_definitions(dbo, "waitinglist")
@@ -951,16 +964,16 @@ def qr_animal_img_record_src(animalid: int, size: str = "150x150") -> str:
     Returns an img src attribute for a QR code to an animal's record.
     size is a sizespec eg: 150x150
     """
-    url = asm3.utils.encode_uri(f"{BASE_URL}/animal?id={animalid}")
-    return QR_IMG_SRC % { "url": url, "size": size }
+    url = f"{BASE_URL}/animal?id={animalid}"
+    return asm3.utils.qr_datauri(url, size)
 
 def qr_animal_img_share_src(dbo: Database, animalid: int, size: str = "150x150") -> str:
     """
     Returns an img src attribute for a QR code to the public animalview page for the animal.
     size is a sizespec eg: 150x150
     """
-    url = asm3.utils.encode_uri(f"{SERVICE_URL}?account={dbo.database}&method=animal_view&animalid={animalid}")
-    return QR_IMG_SRC % { "url": url, "size": size }
+    url = f"{SERVICE_URL}?account={dbo.database}&method=animal_view&animalid={animalid}"
+    return asm3.utils.qr_datauri(url, size)
 
 def thumbnail_img_src(dbo: Database, row: ResultRow, mode: str) -> str:
     """

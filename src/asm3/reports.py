@@ -12,7 +12,7 @@ import asm3.person
 import asm3.template
 import asm3.users
 import asm3.utils
-from asm3.sitedefs import BASE_URL, QR_IMG_SRC, URL_REPORTS
+from asm3.sitedefs import BASE_URL, URL_REPORTS
 from asm3.typehints import Any, CriteriaParams, datetime, Database, List, MenuItems, PostedData, ReportParams, ResultRow, Results, Session, Tuple
 
 HEADER = 0
@@ -198,6 +198,8 @@ def get_criteria_params(dbo: Database, customreportid: int, post: PostedData) ->
     """
     Creates a list of criteria parameters to pass to a report. The post
     parameter contains the posted form data from a report criteria screen.
+    These correspond to supporting values used in these locations:
+        report_criteria.js, mobile_report.js, main.py/report_criteria, main.py/mobile_report_criteria
     """
     crit = Report(dbo).GetParams(customreportid)
     p = []
@@ -225,20 +227,22 @@ def get_criteria_params(dbo: Database, customreportid: int, post: PostedData) ->
             p.append( ( name, asm3.i18n._("Flag", l), post[name], post[name] ) )
         elif rtype == "DONATIONTYPE" or rtype == "PAYMENTTYPE":
             p.append( ( name, asm3.i18n._("Payment Type", l), post[name], asm3.lookups.get_donationtype_name(dbo, post.integer(name) )) )
+        elif rtype == "ENTRYCATEGORY":
+            p.append( ( name, asm3.i18n._("Entry Category", l), post[name], asm3.lookups.get_entryreason_name(dbo, post.integer(name) )) )
+        elif rtype == "LITTER":
+            p.append( ( name, asm3.i18n._("Litter", l), post[name], post[name]) )
+        elif rtype == "LOCATION":
+            p.append( ( name, asm3.i18n._("Location", l), post[name], asm3.lookups.get_internallocation_name(dbo, post.integer(name) )) )
+        elif rtype == "LOGTYPE":
+            p.append( ( name, asm3.i18n._("Log Type", l), post[name], asm3.lookups.get_logtype_name(dbo, post.integer(name) )) )
         elif rtype == "PAYMENTMETHOD":
             p.append( ( name, asm3.i18n._("Payment Method", l), post[name], asm3.lookups.get_paymentmethod_name(dbo, post.integer(name) )) )
         elif rtype == "PERSON":
             p.append( ( name, asm3.i18n._("Person", l), post[name], asm3.person.get_person_name(dbo, post[name])) )
         elif rtype == "PERSONFLAG":
             p.append( ( name, asm3.i18n._("Flag", l), post[name], post[name] ) )
-        elif rtype == "LITTER":
-            p.append( ( name, asm3.i18n._("Litter", l), post[name], post[name]) )
         elif rtype == "SPECIES":
             p.append( ( name, asm3.i18n._("Species", l), post[name], asm3.lookups.get_species_name(dbo, post.integer(name) )) )
-        elif rtype == "LOCATION":
-            p.append( ( name, asm3.i18n._("Location", l), post[name], asm3.lookups.get_internallocation_name(dbo, post.integer(name) )) )
-        elif rtype == "LOGTYPE":
-            p.append( ( name, asm3.i18n._("Log Type", l), post[name], asm3.lookups.get_logtype_name(dbo, post.integer(name) )) )
         elif rtype == "TYPE":
             p.append( ( name, asm3.i18n._("Type", l), post[name], asm3.lookups.get_animaltype_name(dbo, post.integer(name) )) )
     return p
@@ -338,7 +342,7 @@ def check_sql(dbo: Database, username: str, sql: str) -> str:
     sanitised and in a ready-to-run state.
     If there is a problem with the query, an ASMValidationError is raised
     """
-    COMMON_DATE_TOKENS = ( "CURRENT_DATE", "@from", "@to", "@thedate", "@dt" )
+    COMMON_DATE_TOKENS = ( "CURRENT_DATE", "@from", "@to", "@osfrom", "@osto", "@osatdate", "@thedate", "@dt" )
     # Clean up and substitute some tags
     sql = sql.replace("$USER$", username)
     # Subtitute CONST tokens
@@ -359,6 +363,10 @@ def check_sql(dbo: Database, username: str, sql: str) -> str:
             sub = "2001"
         elif token.startswith("ASK DATE") or token.startswith("CURRENT_DATE") or token in COMMON_DATE_TOKENS:
             sub = "2001-01-01"
+        elif token == "":
+            # an empty token means $$ was used, it can be used to quote strings in Postgres - leave it alone
+            i = sql.find("$", end+1)
+            continue
         else:
             sub = "0"
         sql = sql[0:i] + sub + sql[end+1:]
@@ -397,13 +405,15 @@ def generate_html(dbo: Database, username: str, sql: str) -> str:
     """
     sql = check_sql(dbo, username, sql)
     rs, cols = dbo.query_tuple_columns(sql)
-    h = "$$HEADER\n<table border=\"1\">\n<tr>\n"
+    h = "$$HEADER\n<table border=\"1\">\n<thead>\n<tr>\n"
     b = "$$BODY\n<tr>\n"
-    f = "$$FOOTER\n</table>\n<p>Total: {COUNT.%s}</p>\nFOOTER$$\n" % cols[0].upper()
+    f = "$$FOOTER\n</table>\nFOOTER$$\n"
+    if len(cols) > 0:
+        f = "$$FOOTER\n</tbody>\n</table>\n<p>Total: {COUNT.%s}</p>\nFOOTER$$\n" % cols[0].upper()
     for c in cols:
         h += "<th>%s</th>\n" % c
         b += "<td>$%s</td>\n" % c.upper()
-    h += "</tr>\nHEADER$$\n\n"
+    h += "</tr>\n</thead>\n<tbody>\nHEADER$$\n\n"
     b += "</tr>\nBODY$$\n\n"
     return h + b + f
 
@@ -431,13 +441,11 @@ def get_smcom_reports_txt(dbo: Database) -> str:
     Retrieves the reports.txt file with standard report definitions from sheltermanager.com
     """
     try:
-        if asm3.smcom.active():
-            s = asm3.smcom.get_reports()
-        else:
-            REPORTS_CACHE_TTL = 86400
-            s = asm3.cachedisk.get("reports", "reports")
-            if s is None:
-                s = asm3.utils.get_url(URL_REPORTS)["response"]
+        REPORTS_CACHE_TTL = 86400
+        s = asm3.cachedisk.get("reports", "reports")
+        if s is None:
+            s = asm3.utils.get_url(URL_REPORTS)["response"]
+            if not URL_REPORTS.startswith("file:"):
                 asm3.cachedisk.put("reports", "reports", s, REPORTS_CACHE_TTL)
         asm3.al.debug("read reports.txt (%s bytes)" % len(s), "reports.get_smcom_reports_txt", dbo)
         return s
@@ -966,7 +974,7 @@ class Report:
                 # rounding
                 roundto = 2
                 if len(fields) > 2:
-                    roundto = asm3.utils.cint(fields[2])
+                    roundto = abs(asm3.utils.cint(fields[2]))
 
                 total = 0.0
                 for i in range(gd.lastGroupStartPosition, gd.lastGroupEndPosition + 1):
@@ -1003,7 +1011,7 @@ class Report:
                 # rounding
                 roundto = 2
                 if len(fields) > 2:
-                    roundto = asm3.utils.cint(fields[2])
+                    roundto = abs(asm3.utils.cint(fields[2]))
 
                 total = 0.0
                 num = 0
@@ -1030,7 +1038,7 @@ class Report:
                 # rounding
                 roundto = 2
                 if len(fields) > 3:
-                    roundto = asm3.utils.cint(fields[3])
+                    roundto = abs(asm3.utils.cint(fields[3]))
 
                 matched = 0
                 for i in range(gd.lastGroupStartPosition, gd.lastGroupEndPosition + 1):
@@ -1150,7 +1158,7 @@ class Report:
                 size = "150x150"
                 if len(fields) > 2: size = fields[2]
                 url = BASE_URL + "/animal?id=%s" % animalid
-                value = QR_IMG_SRC % { "url": url, "size": size }
+                value = asm3.utils.qr_datauri(url, size) 
 
             # {SUBREPORT.[title].[parentField]} - embed a subreport
             if key.lower().startswith("subreport."):
@@ -1338,6 +1346,11 @@ class Report:
                 for p in params:
                     if p[0] == token:
                         value = p[2]
+            # empty token - so $$ entered, used for quoting strings in postgres
+            # - skip replacing the token and leave it alone
+            if token == "":
+                sp = s.find("$", ep+1)
+                continue
             # Do the replace
             s = s[0:sp] + value + s[ep+1:]
             # Next token
@@ -2028,7 +2041,7 @@ class Report:
                     size = "150x150"
                     if len(fields) > 2: size = fields[2]
                     url = BASE_URL + "/animal?id=%s" % animalid
-                    value = QR_IMG_SRC % { "url": url, "size": size }
+                    value = asm3.utils.qr_datauri(url, size)
 
                 # {SUBREPORT.[title].[parentField]} - embed a subreport
                 if key.lower().startswith("subreport."):

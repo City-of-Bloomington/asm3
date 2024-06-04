@@ -2,7 +2,7 @@ shelteranimalscount.org matrix 2021
 ###
 Figures
 ###
-33600/PostgreSQL rev11
+34810/PostgreSQL rev13
 ###
 Information needed to complete the shelteranimalscount.org basic data matrix 2021
 ###
@@ -64,14 +64,14 @@ BODY$$
 
 $$FOOTER
 <p>
-<sup>1</sup> Animals with a "Stray" entry category.<br/>
-<sup>2</sup> Animals with a "Surrender" entry category.<br/>
-<sup>3</sup> Animals where the "Transfer In" box is ticked in Entry, state is compared against Settings, Options, Shelter Details.<br/>
-<sup>4</sup> Animals where "Euthanasia requested" is set in the asilomar section of Entry.<br/>
+<sup>1</sup> Animals with a "Stray" entry type.<br/>
+<sup>2</sup> Animals with a "Surrender" entry type.<br/>
+<sup>3</sup> Animals where the "Transfer In" is chosen in the entry type dropdown, state is compared against Settings, Options, Shelter Details.<br/>
+<sup>4</sup> Animals where "Euthanasia requested" is chosen in the entry type dropdown.<br/>
 <sup>5</sup> Animals that have an adoption movement with a return date set.<br/>
 <sup>6</sup> Animals that have non-foster or retailer movement with a return date set.<br/>
 <sup>7</sup> Animals with a "Released to wild" or "TNR" movement but the entry category is NOT TNR.<br/>
-<sup>8</sup> Animals with a Released to Wild movement with an entry category of TNR.<br/>
+<sup>8</sup> Animals with a Released to Wild movement with an entry type of TNR.<br/>
 <sup>9</sup> Animals with an Escaped or Stolen movement.<br/>
 </p>
 FOOTER$$
@@ -121,24 +121,21 @@ AND DateOfBirth >= DateBroughtIn - INTERVAL '5 months'
 AND (DeceasedDate Is Null OR DeceasedDate > '$PARENTARG2$')) AS JuniorEndingOnFoster,
 
 (SELECT COUNT(*) FROM animal
-INNER JOIN entryreason ON entryreason.ID = animal.EntryReasonID
-WHERE ReasonName LIKE '%Stray%' AND IsTransfer = 0 AND CrueltyCase = 0
+WHERE EntryTypeID = 2
 AND DateBroughtIn >= '$PARENTARG1$' AND DateBroughtIn <= '$PARENTARG2$' 
 AND SpeciesID IN ($PARENTARG3$)
 AND DateOfBirth < DateBroughtIn - INTERVAL '5 months' 
 AND NonShelterAnimal = 0) AS AdultStray,
 
 (SELECT COUNT(*) FROM animal 
-INNER JOIN entryreason ON entryreason.ID = animal.EntryReasonID
-WHERE ReasonName LIKE '%Stray%' AND IsTransfer = 0 AND CrueltyCase = 0
+WHERE EntryTypeID = 2
 AND DateBroughtIn >= '$PARENTARG1$' AND DateBroughtIn <= '$PARENTARG2$' 
 AND SpeciesID IN ($PARENTARG3$)
 AND DateOfBirth >= DateBroughtIn - INTERVAL '5 months' 
 AND NonShelterAnimal = 0) AS JuniorStray,
 
 (SELECT COUNT(*) FROM animal
-INNER JOIN entryreason ON entryreason.ID = animal.EntryReasonID
-WHERE ReasonName LIKE '%Surrender%' AND IsTransfer = 0 AND CrueltyCase = 0
+WHERE EntryTypeID = 1
 AND AsilomarOwnerRequestedEuthanasia = 0
 AND DateBroughtIn >= '$PARENTARG1$' AND DateBroughtIn <= '$PARENTARG2$' 
 AND SpeciesID IN ($PARENTARG3$)
@@ -146,8 +143,7 @@ AND DateOfBirth < DateBroughtIn - INTERVAL '5 months'
 AND NonShelterAnimal = 0) AS AdultSurrender,
 
 (SELECT COUNT(*) FROM animal 
-INNER JOIN entryreason ON entryreason.ID = animal.EntryReasonID
-WHERE ReasonName LIKE '%Surrender%' AND IsTransfer = 0 AND CrueltyCase = 0
+WHERE EntryTypeID = 1
 AND AsilomarOwnerRequestedEuthanasia = 0
 AND DateBroughtIn >= '$PARENTARG1$' AND DateBroughtIn <= '$PARENTARG2$' 
 AND SpeciesID IN ($PARENTARG3$)
@@ -155,8 +151,7 @@ AND DateOfBirth >= DateBroughtIn - INTERVAL '5 months'
 AND NonShelterAnimal = 0) AS JuniorSurrender,
 
 (SELECT COUNT(*) FROM animal
-INNER JOIN entryreason ON entryreason.ID = animal.EntryReasonID
-WHERE IsTransfer = 1 AND CrueltyCase = 0
+WHERE EntryTypeID = 3
 AND (animal.BroughtInByOwnerID = 0 OR (SELECT OwnerCounty FROM owner WHERE ID = animal.BroughtInByOwnerID) = 
 (SELECT ItemValue FROM configuration WHERE ItemName = 'OrganisationCounty'))
 AND DateBroughtIn >= '$PARENTARG1$' AND DateBroughtIn <= '$PARENTARG2$' 
@@ -165,8 +160,7 @@ AND DateOfBirth < DateBroughtIn - INTERVAL '5 months'
 AND NonShelterAnimal = 0) AS AdultTransferInState,
 
 (SELECT COUNT(*) FROM animal 
-INNER JOIN entryreason ON entryreason.ID = animal.EntryReasonID
-WHERE IsTransfer = 1 AND CrueltyCase = 0
+WHERE EntryTypeID = 3
 AND (animal.BroughtInByOwnerID = 0 OR (SELECT OwnerCounty FROM owner WHERE ID = animal.BroughtInByOwnerID) = 
 (SELECT ItemValue FROM configuration WHERE ItemName = 'OrganisationCounty'))
 AND DateBroughtIn >= '$PARENTARG1$' AND DateBroughtIn <= '$PARENTARG2$' 
@@ -175,8 +169,7 @@ AND DateOfBirth >= DateBroughtIn - INTERVAL '5 months'
 AND NonShelterAnimal = 0) AS JuniorTransferInState,
 
 (SELECT COUNT(*) FROM animal
-INNER JOIN entryreason ON entryreason.ID = animal.EntryReasonID
-WHERE IsTransfer = 1 AND CrueltyCase = 0
+WHERE EntryTypeID = 3
 AND (animal.BroughtInByOwnerID <> 0 AND (SELECT OwnerCounty FROM owner WHERE ID = animal.BroughtInByOwnerID) <> 
 (SELECT ItemValue FROM configuration WHERE ItemName = 'OrganisationCounty'))
 AND DateBroughtIn >= '$PARENTARG1$' AND DateBroughtIn <= '$PARENTARG2$' 
@@ -185,8 +178,7 @@ AND DateOfBirth < DateBroughtIn - INTERVAL '5 months'
 AND NonShelterAnimal = 0) AS AdultTransferOutState,
 
 (SELECT COUNT(*) FROM animal 
-INNER JOIN entryreason ON entryreason.ID = animal.EntryReasonID
-WHERE IsTransfer = 1 AND CrueltyCase = 0
+WHERE EntryTypeID = 3
 AND (animal.BroughtInByOwnerID <> 0 AND (SELECT OwnerCounty FROM owner WHERE ID = animal.BroughtInByOwnerID) <> 
 (SELECT ItemValue FROM configuration WHERE ItemName = 'OrganisationCounty'))
 AND DateBroughtIn >= '$PARENTARG1$' AND DateBroughtIn <= '$PARENTARG2$' 
@@ -196,8 +188,7 @@ AND NonShelterAnimal = 0) AS JuniorTransferOutState,
 
 (SELECT COUNT(*) FROM animal
 INNER JOIN entryreason ON entryreason.ID = animal.EntryReasonID
-WHERE OriginalOwnerID > 0 AND IsTransfer = 0 AND CrueltyCase = 0
-AND AsilomarOwnerRequestedEuthanasia = 1
+WHERE EntryTypeID = 10
 AND DateBroughtIn >= '$PARENTARG1$' AND DateBroughtIn <= '$PARENTARG2$' 
 AND SpeciesID IN ($PARENTARG3$)
 AND DateOfBirth < DateBroughtIn - INTERVAL '5 months' 
@@ -205,24 +196,21 @@ AND NonShelterAnimal = 0) AS AdultRequestedEuth,
 
 (SELECT COUNT(*) FROM animal 
 INNER JOIN entryreason ON entryreason.ID = animal.EntryReasonID
-WHERE OriginalOwnerID > 0 AND IsTransfer = 0 AND CrueltyCase = 0
-AND AsilomarOwnerRequestedEuthanasia = 1
+WHERE EntryTypeID = 10
 AND DateBroughtIn >= '$PARENTARG1$' AND DateBroughtIn <= '$PARENTARG2$' 
 AND SpeciesID IN ($PARENTARG3$)
 AND DateOfBirth >= DateBroughtIn - INTERVAL '5 months' 
 AND NonShelterAnimal = 0) AS JuniorRequestedEuth,
 
 (SELECT COUNT(*) FROM animal
-INNER JOIN entryreason ON entryreason.ID = animal.EntryReasonID
-WHERE OriginalOwnerID > 0 AND IsTransfer = 0 AND CrueltyCase = 1
+WHERE EntryTypeID = 7
 AND DateBroughtIn >= '$PARENTARG1$' AND DateBroughtIn <= '$PARENTARG2$' 
 AND SpeciesID IN ($PARENTARG3$)
 AND DateOfBirth < DateBroughtIn - INTERVAL '5 months' 
 AND NonShelterAnimal = 0) AS AdultImpound,
 
 (SELECT COUNT(*) FROM animal 
-INNER JOIN entryreason ON entryreason.ID = animal.EntryReasonID
-WHERE OriginalOwnerID > 0 AND IsTransfer = 0 AND CrueltyCase = 1
+WHERE EntryTypeID = 7
 AND DateBroughtIn >= '$PARENTARG1$' AND DateBroughtIn <= '$PARENTARG2$' 
 AND SpeciesID IN ($PARENTARG3$)
 AND DateOfBirth >= DateBroughtIn - INTERVAL '5 months' 
@@ -230,7 +218,7 @@ AND NonShelterAnimal = 0) AS JuniorImpound,
 
 (SELECT COUNT(*) FROM animal
 INNER JOIN entryreason ON entryreason.ID = animal.EntryReasonID
-WHERE ReasonName NOT LIKE '%Surrender%' AND IsTransfer = 0 AND CrueltyCase = 0 AND ReasonName NOT LIKE '%Stray%'
+WHERE EntryTypeID NOT IN (1,2,3,7)
 AND AsilomarOwnerRequestedEuthanasia = 0
 AND DateBroughtIn >= '$PARENTARG1$' AND DateBroughtIn <= '$PARENTARG2$' 
 AND SpeciesID IN ($PARENTARG3$)
@@ -238,8 +226,7 @@ AND DateOfBirth < DateBroughtIn - INTERVAL '5 months'
 AND NonShelterAnimal = 0) AS AdultOtherIntake,
 
 (SELECT COUNT(*) FROM animal 
-INNER JOIN entryreason ON entryreason.ID = animal.EntryReasonID
-WHERE ReasonName NOT LIKE '%Surrender%' AND IsTransfer = 0 AND CrueltyCase = 0 AND ReasonName NOT LIKE '%Stray%'
+WHERE EntryTypeID NOT IN (1,2,3,7)
 AND AsilomarOwnerRequestedEuthanasia = 0
 AND DateBroughtIn >= '$PARENTARG1$' AND DateBroughtIn <= '$PARENTARG2$' 
 AND SpeciesID IN ($PARENTARG3$)

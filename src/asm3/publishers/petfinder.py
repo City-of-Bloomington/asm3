@@ -1,14 +1,22 @@
 
+import asm3.cachedisk
 import asm3.configuration
 import asm3.i18n
 import asm3.medical
 
 from .base import FTPPublisher
 from asm3.sitedefs import PETFINDER_FTP_HOST, PETFINDER_SEND_PHOTOS_BY_FTP
-from asm3.typehints import datetime, Database, List, PublishCriteria, ResultRow, Results
+from asm3.typehints import datetime, Database, Dict, List, PublishCriteria, ResultRow, Results
 
 import os
 import sys
+
+CacheInvalidationKeys = Dict[int, str]
+
+CK_ADOPTED_ANIMALS = "pfciadopted"
+CK_ADOPTABLE_ANIMALS = "pfciadoptable"
+CK_HELD_ANIMALS = "pfciheld"
+CK_STRAY_ANIMALS = "pfcistray"
 
 class PetFinderPublisher(FTPPublisher):
     """
@@ -29,14 +37,16 @@ class PetFinderPublisher(FTPPublisher):
     def pfAnimalQuery(self) -> str:
         return "SELECT a.ID, a.ShelterCode, a.AnimalName, a.BreedID, a.Breed2ID, a.CrossBreed, a.Sex, a.Size, a.DateOfBirth, a.MostRecentEntryDate, a.Fee, " \
             "b1.BreedName AS BreedName1, b2.BreedName AS BreedName2, " \
-            "b1.PetFinderBreed, b2.PetFinderBreed AS PetFinderBreed2, s.PetFinderSpecies, er.ReasonName AS EntryReasonName, " \
+            "b1.PetFinderBreed, b2.PetFinderBreed AS PetFinderBreed2, s.PetFinderSpecies, " \
+            "a.EntryTypeID, et.EntryTypeName AS EntryTypeName, er.ReasonName AS EntryReasonName, " \
             "a.AnimalComments, a.AnimalComments AS WebsiteMediaNotes, a.IsNotAvailableForAdoption, " \
             "a.Neutered, a.IsGoodWithDogs, a.IsGoodWithCats, a.IsGoodWithChildren, a.IsHouseTrained, a.IsCourtesy, a.Declawed, a.CrueltyCase, a.HasSpecialNeeds " \
             "FROM animal a " \
             "INNER JOIN breed b1 ON a.BreedID = b1.ID " \
             "INNER JOIN breed b2 ON a.Breed2ID = b2.ID " \
             "INNER JOIN species s ON a.SpeciesID = s.ID " \
-            "INNER JOIN entryreason er ON a.EntryReasonID = er.ID "
+            "LEFT OUTER JOIN lksentrytype et ON a.EntryTypeID = et.ID " \
+            "LEFT OUTER JOIN entryreason er ON a.EntryReasonID = er.ID "
 
     def pfDate(self, d: datetime) -> str:
         """ Returns a CSV entry for a date in YYYY-MM-DD """
@@ -64,12 +74,15 @@ class PetFinderPublisher(FTPPublisher):
         else:
             return "\"0\""
 
-    def pfImageUrl(self, urls: List[str], index: int) -> str:
+    def pfImageUrl(self, animalid: int, urls: List[str], index: int, cikeys: CacheInvalidationKeys) -> str:
         """
         Returns image URL index from urls, returning an empty string if it does not exist.
         """
         try:
-            return urls[index]
+            key = ""
+            if animalid in cikeys: 
+                key = "&key=%s" % cikeys[animalid]
+            return "%s%s" % (urls[index], key)
         except IndexError:
             return ""
 
@@ -81,6 +94,51 @@ class PetFinderPublisher(FTPPublisher):
             if a.ID == aid:
                 return True
         return False
+    
+    def pfGetCacheInvalidationKeys(self, cachekey: str = CK_ADOPTABLE_ANIMALS) -> CacheInvalidationKeys:
+        """ Returns the list of cache invalidation keys - a dictionary with animal ID as the key """
+        cik = asm3.cachedisk.get(cachekey, self.dbo.database, dict)
+        if cik is None:
+            return {}
+        return cik
+    
+    def pfUpdateCacheInvalidationKeys(self, animals: Results, cachekey: str = CK_ADOPTABLE_ANIMALS) -> CacheInvalidationKeys:
+        """
+        PetFinder have a broken cache implementation. They record photo URLs that they've seen before
+        and will not retrieve them again. When they delete a listing though, they do not remove URLs 
+        from this seen list, which means if an animal is not published in a run and then published
+        later, it will not have any images.
+        We could have gotten around this by setting a timestamp of today's date or something, but that
+        would not only fill their cache, it will invalidate any CDN we are using (but not the file
+        cache backing our service call).
+        This function uses a dictionary that we persist to the disk cache, it contains a list of animals
+        sent last time and a unique key to send with their photo URLs.
+        This function will strip anyone from the list that does not appear in the set of animals given,
+        and it will add anyone who doesn't appear in the list with a new key.
+        What this effectively does is make sure that animals who are published continually have the same
+        key, but the moment an animal is not published, its key is removed so that it will get a new
+        one if it is published again - invalidating PetFinder's cache for them.
+        cachekey can be specified to keep track of multiple sets - adoptable animals, stray/hold animals, adopted, etc.
+        """
+        cik = self.pfGetCacheInvalidationKeys()
+        adoptable_ids = set([a.ID for a in animals])
+        # Remove anyone from the dict who is not adoptable
+        for k, v in cik.copy().items():
+            if k not in adoptable_ids:
+                del cik[k]
+        # Add any new animals to the list and generate a key for them
+        for a in animals:
+            if a.ID in cik: continue
+            cik[a.ID] = asm3.utils.epoch_b32()
+        # Persist the dictionary
+        asm3.cachedisk.put(cachekey, self.dbo.database, cik, 86400*7)
+        return cik
+    
+    def pfRemoveCacheInvalidationKeys(self, cachekey: str = CK_STRAY_ANIMALS) -> None:
+        """
+        Clears an invalidation key cache - used when we stop sending animals of a particular type.
+        """
+        asm3.cachedisk.delete(cachekey, self.dbo.database)
 
     def run(self) -> None:
 
@@ -156,6 +214,10 @@ class PetFinderPublisher(FTPPublisher):
         # data and if they picked an unusual default size it will look weird.
         hide_size = asm3.configuration.dont_show_size(self.dbo)
 
+        # set/prune the cache invalidation keys for the photo urls we are going
+        # to send to PetFinder for our adoptable animals
+        adoptablecikeys = self.pfUpdateCacheInvalidationKeys(animals, CK_ADOPTABLE_ANIMALS)
+
         csv = [ "ID,Internal,AnimalName,PrimaryBreed,SecondaryBreed,Sex,Size,Age,Desc,Type,Status," \
             "Shots,Altered,NoDogs,NoCats,NoKids,Housetrained,Declawed,specialNeeds,Mix," \
             "photo1,photo2,photo3,photo4,photo5,photo6,arrival_date,birth_date," \
@@ -184,7 +246,7 @@ class PetFinderPublisher(FTPPublisher):
                     self.log("%s is unaltered and petfinder_hide_unaltered == true" % an["ANIMALNAME"])
                     continue
 
-                csv.append( self.processAnimal(an, agebands, hide_size = hide_size) )
+                csv.append( self.processAnimal(an, agebands, hide_size = hide_size, cikeys = adoptablecikeys) )
 
                 # Mark success in the log
                 self.logSuccess("Processed: %s: %s (%d of %d)" % ( an["SHELTERCODE"], an["ANIMALNAME"], anCount, len(animals)))
@@ -197,24 +259,41 @@ class PetFinderPublisher(FTPPublisher):
 
         # Is the option to send strays on?
         if asm3.configuration.petfinder_send_strays(self.dbo):
-            rows = self.dbo.query("%s WHERE a.Archived=0 AND a.HasPermanentFoster=0 AND a.HasTrialAdoption=0 AND er.ReasonName LIKE '%%Stray%%'" % self.pfAnimalQuery())
+            rows = self.dbo.query("%s WHERE a.Archived=0 AND a.HasPermanentFoster=0 AND a.HasTrialAdoption=0 AND a.EntryTypeID=2" % self.pfAnimalQuery())
+            straycikeys = self.pfUpdateCacheInvalidationKeys(rows, CK_STRAY_ANIMALS)
             for an in rows:
                 if self.pfRecordIn(animals, an.ID): continue # do not re-send adoptable animals
-                csv.append( self.processAnimal(an, agebands, status = "F", hide_size = hide_size) )
+                csv.append( self.processAnimal(an, agebands, status = "F", hide_size = hide_size, cikeys = straycikeys) )
+            self.log(f"Added {len(rows)} strays with status 'F'")
+        else:
+            self.pfRemoveCacheInvalidationKeys(CK_STRAY_ANIMALS)
 
         # Is the option to send holds on?
         if asm3.configuration.petfinder_send_holds(self.dbo):
             rows = self.dbo.query("%s WHERE a.Archived=0 AND a.IsHold=1" % self.pfAnimalQuery())
+            heldcikeys = self.pfUpdateCacheInvalidationKeys(rows, CK_HELD_ANIMALS)
             for an in rows:
                 if self.pfRecordIn(animals, an.ID): continue # do not re-send adoptable animals
-                if an.ENTRYREASONNAME.find("Stray") != -1: continue # we already sent this animal as a stray above
-                csv.append( self.processAnimal(an, agebands, status = "H", hide_size = hide_size ) )
+                # TODO: Do we need to exclude animals we just sent as strays?
+                csv.append( self.processAnimal(an, agebands, status = "H", hide_size = hide_size, cikeys = heldcikeys ) )
+            self.log(f"Added {len(rows)} held animals with status 'H'")
+        else:
+            self.pfRemoveCacheInvalidationKeys(CK_HELD_ANIMALS)
 
         # Is the option to send previous adoptions on?
         if asm3.configuration.petfinder_send_adopted(self.dbo):
-            rows = self.dbo.query("%s WHERE a.Archived=1 AND a.ActiveMovementType=1" % self.pfAnimalQuery())
+            # Unlike stray/holds (which are on shelter and likely to be not for adoption), 
+            # we can choose to omit adopted animals who have the "Do Not Publish" flag on their record.
+            rows = self.dbo.query("%s WHERE a.Archived=1 AND a.ActiveMovementType=1 AND a.IsNotAvailableForAdoption=0 ORDER BY a.ActiveMovementDate DESC" % self.pfAnimalQuery())
+            adopted_photo = asm3.configuration.petfinder_send_adopted_photo(self.dbo)
+            adoptedcikeys = self.pfUpdateCacheInvalidationKeys(rows, CK_ADOPTED_ANIMALS)
             for an in rows:
-                csv.append( self.processAnimal(an, agebands, status = "X", hide_size = hide_size ) )
+                csv.append( self.processAnimal(an, agebands, status = "X", hide_size = hide_size, adopted_photo = adopted_photo, cikeys = adoptedcikeys ) )
+            photoincluded = ""
+            if adopted_photo: photoincluded = "(photo included)"
+            self.log(f"Added {len(rows)} previously animals {photoincluded} with status 'X'")
+        else:
+            self.pfRemoveCacheInvalidationKeys(CK_ADOPTED_ANIMALS)
 
         # Upload the datafile
         self.chdir("..", "import")
@@ -226,7 +305,8 @@ class PetFinderPublisher(FTPPublisher):
         self.log("\n".join(csv))
         self.cleanup()
 
-    def processAnimal(self, an: ResultRow, agebands: List[int] = [ 182, 730, 3285 ], status: str = "A", hide_size: bool = False) -> str:
+    def processAnimal(self, an: ResultRow, agebands: List[int] = [ 182, 730, 3285 ], status: str = "A", 
+                      hide_size: bool = False, adopted_photo: bool = False, cikeys: CacheInvalidationKeys = {}) -> str:
         """ Processes an animal and returns a CSV line """
         primary_color = ""
         secondary_color = ""
@@ -305,9 +385,9 @@ class PetFinderPublisher(FTPPublisher):
         else:
             line.append("")
         # Mix
-        line.append(self.pfYesNo(an.CROSSBREED == 1))
+        line.append(self.pfYesNo(self.isCrossBreed(an)))
         # photo1-6
-        if PETFINDER_SEND_PHOTOS_BY_FTP or status == "X":
+        if PETFINDER_SEND_PHOTOS_BY_FTP:
             # Send blanks for the 6 images if we already sent them by FTP
             line.append("")
             line.append("")
@@ -315,14 +395,31 @@ class PetFinderPublisher(FTPPublisher):
             line.append("")
             line.append("")
             line.append("")
+        elif status in ("F", "H"):
+            # Only send the preferred image for stray and held animals
+            line.append(self.pfImageUrl(an.ID, [ self.getPhotoUrl(an.ID) ], 0, cikeys))
+            line.append("")
+            line.append("")
+            line.append("")
+            line.append("")
+            line.append("")
+        elif status == "X" and adopted_photo:
+            # Only send the preferred image for adopted animals if the option is on
+            line.append(self.pfImageUrl(an.ID, [ self.getPhotoUrl(an.ID) ], 0, cikeys))
+            line.append("")
+            line.append("")
+            line.append("")
+            line.append("")
+            line.append("")
         else:
+            # Adoptable - include all available upto a max of 6 photos
             urls = self.getPhotoUrls(an.ID)
-            line.append(self.pfImageUrl(urls, 0)) # photo1
-            line.append(self.pfImageUrl(urls, 1)) # photo2
-            line.append(self.pfImageUrl(urls, 2)) # photo3
-            line.append(self.pfImageUrl(urls, 3)) # photo4
-            line.append(self.pfImageUrl(urls, 4)) # photo5
-            line.append(self.pfImageUrl(urls, 5)) # photo6
+            line.append(self.pfImageUrl(an.ID, urls, 0, cikeys)) # photo1
+            line.append(self.pfImageUrl(an.ID, urls, 1, cikeys)) # photo2
+            line.append(self.pfImageUrl(an.ID, urls, 2, cikeys)) # photo3
+            line.append(self.pfImageUrl(an.ID, urls, 3, cikeys)) # photo4
+            line.append(self.pfImageUrl(an.ID, urls, 4, cikeys)) # photo5
+            line.append(self.pfImageUrl(an.ID, urls, 5, cikeys)) # photo6
         # Arrival Date
         line.append(self.pfDate(an.MOSTRECENTENTRYDATE))
         # Birth Date

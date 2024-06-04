@@ -7,6 +7,7 @@ $(function() {
     const ADDITIONAL_ANIMAL = [0,2,3,4,5,6];
     const ADDITIONAL_PERSON = [1,7,8];
     const ADDITIONAL_INCIDENT = [16,17,18,19,20];
+    const ADDITIONAL_WAITINGLIST = [13,14,15];
 
     const emailhours = [
         { display: _("With overnight batch"), value: -1 },
@@ -62,6 +63,7 @@ $(function() {
                     .replace("{0}", _("Altered between"))
                     .replace("{1}", _("and")) ],
                 [ _("Ask the user for a color"), "askcolor", "BaseColourName LIKE '%$ASK STRING Color$%'" ],
+                [ _("Ask the user for an entry category"), "askentry", "EntryReasonID=$ASK ENTRYCATEGORY$" ],
                 [ _("Ask the user for a flag"), "askflag", "AdditionalFlags LIKE '%$ASK ANIMALFLAG$%'" ],
                 [ _("Ask the user for a location"), "asklocation", "ShelterLocation=$ASK LOCATION$" ],
                 [ _("Ask the user for a species"), "askspecies", "SpeciesID=$ASK SPECIES$" ],
@@ -126,10 +128,20 @@ $(function() {
                 [ _("No tattoo"), "nottattoo", "Tattoo=0" ],
                 [ _("Reclaimed"), "reclaimed", "ActiveMovementDate Is Not Null AND ActiveMovementType=5" ],
                 [ _("Reserved"), "reserved", "HasActiveReserve=1" ],
-                [ _("On shelter"), "onshelter", "Archived=0" ],
-                [ _("On shelter (no fosters)"), "onshelternf", "Archived=0 AND ActiveMovementType=0" ],
                 [ _("On foster"), "onfoster", "ActiveMovementType=2 AND HasPermanentFoster=0" ],
                 [ _("On permanent foster"), "onpfoster", "ActiveMovementType=2 AND HasPermanentFoster=1" ],
+                [ _("On shelter"), "onshelter", "Archived=0" ],
+                [ _("On shelter (no fosters)"), "onshelternf", "Archived=0 AND (ActiveMovementType Is Null OR ActiveMovementType=0)" ],
+                [ _("On shelter (at date)"), "osatdate", 
+                    "NOT EXISTS (SELECT MovementDate FROM adoption WHERE MovementDate <= '$@osatdate$ 23:59:59' AND (ReturnDate Is Null OR ReturnDate > '$@osatdate$') AND MovementType NOT IN (2,8) AND AnimalID = v_animal.ID) " +
+                    "AND DateBroughtIn <= '$@osatdate$ 23:59:59' " +
+                    "AND NonShelterAnimal = 0 " + 
+                    "AND (DeceasedDate Is Null OR DeceasedDate > '$@osatdate$ 23:59:59') " ],
+                [ _("On shelter (between two dates)"), "ostwodates", 
+                    "NOT EXISTS (SELECT MovementDate FROM adoption WHERE MovementDate <= '$@osfrom$ 23:59:59' AND (ReturnDate Is Null OR ReturnDate > '$@osfrom$') AND MovementType NOT IN (2,8) AND AnimalID = v_animal.ID) " +
+                    "AND DateBroughtIn <= '$@osto$ 23:59:59' " +
+                    "AND NonShelterAnimal = 0 " + 
+                    "AND (DeceasedDate Is Null OR DeceasedDate > '$@osfrom$ 23:59:59') " ],
                 [ _("On trial adoption"), "trialadoption", "ActiveMovementType=1 AND HasTrialAdoption=1" ],
                 [ _("Pickup"), "pickup", "IsPickup=1" ],
                 [ _("Quarantine"), "quarantine", "IsQuarantine=1" ],
@@ -202,35 +214,46 @@ $(function() {
         ];
 
         const QB_PERSON_CRITERIA = [
-                [ _("ACO"), "aco", "IsACO=1" ],
-                [ _("Active license held"), "haslicense", "EXISTS(SELECT ID FROM ownerlicence WHERE OwnerID=v_owner.ID " +
-                    "AND IssueDate<='$CURRENT_DATE$' AND (ExpiryDate Is Null OR ExpiryDate>'$CURRENT_DATE$'))" ],
-                [ _("Adopter"), "adopter", "IsAdopter=1" ],
-                [ _("Adoption Coordinator"), "coordinator", "IsAdoptionCoordinator=1" ],
-                [ _("Ask the user for a flag"), "askflag", "AdditionalFlags LIKE '%$ASK PERSONFLAG$%'" ],
-                [ _("Ask the user for a city"), "askcity", "OwnerTown LIKE '%$ASK STRING {0}$%'"
-                    .replace("{0}", _("Enter a city")) ],
-                [ _("Banned"), "banned", "IsBanned=1" ],
-                [ _("Created since"), "createdsince", "CreatedDate>='$ASK DATE {0}$'".replace("{0}", _("Created since")) ],
-                [ _("Deceased"), "deceased", "IsDeceased=1" ],
-                [ _("Donor"), "donor", "IsDonor=1" ],
-                [ _("Driver"), "driver", "IsDriver=1" ],
-                [ _("Fosterer"), "fosterer", "IsFosterer=1" ],
-                [ _("GiftAid"), "giftaid", "IsGiftAid=1" ],
-                [ _("Homechecked"), "homechecked", "IDCheck=1" ],
-                [ _("Homechecked between two dates"), "homechecktwo", 
-                    "DateLastHomeChecked>='$ASK DATE {0}$' AND DateLastHomeChecked<='$ASK DATE {1}$'"
-                    .replace("{0}", _("Homechecked between"))
-                    .replace("{1}", _("and")) ],
-                [ _("Homechecked by"), "homecheckedby", "IDCheck=1 AND HomeCheckedBy=$ASK PERSON$" ],
-                [ _("Member"), "member", "IsMember=1" ],
-                [ _("No active license held"), "nolicense", "NOT EXISTS(SELECT ID FROM ownerlicence WHERE OwnerID=v_owner.ID " +
-                    "AND IssueDate<='$CURRENT_DATE$' AND (ExpiryDate Is Null OR ExpiryDate>'$CURRENT_DATE$'))" ],
-                [ _("Retailer"), "retailer", "IsRetailer=1" ],
-                [ _("Site matches current user"), "site", "SiteID=$SITE$" ],
-                [ _("Staff"), "staff", "IsStaff=1" ],
-                [ _("Vet"), "vet", "IsVet=1" ],
-                [ _("Volunteer"), "volunteer", "IsVolunteer=1" ]
+            [ _("ACO"), "aco", "IsACO=1" ],
+            [ _("Active license held"), "haslicense", "EXISTS(SELECT ID FROM ownerlicence WHERE OwnerID=v_owner.ID " +
+                "AND IssueDate<='$CURRENT_DATE$' AND (ExpiryDate Is Null OR ExpiryDate>'$CURRENT_DATE$'))" ],
+            [ _("Adopter"), "adopter", "IsAdopter=1" ],
+            [ _("Adoption Coordinator"), "coordinator", "IsAdoptionCoordinator=1" ],
+            [ _("Ask the user for a flag"), "askflag", "AdditionalFlags LIKE '%$ASK PERSONFLAG$%'" ],
+            [ _("Ask the user for a city"), "askcity", "OwnerTown LIKE '%$ASK STRING {0}$%'"
+                .replace("{0}", _("Enter a city")) ],
+            [ _("Banned"), "banned", "IsBanned=1" ],
+            [ _("Created since"), "createdsince", "CreatedDate>='$ASK DATE {0}$'".replace("{0}", _("Created since")) ],
+            [ _("Deceased"), "deceased", "IsDeceased=1" ],
+            [ _("Donor"), "donor", "IsDonor=1" ],
+            [ _("Driver"), "driver", "IsDriver=1" ],
+            [ _("Fosterer"), "fosterer", "IsFosterer=1" ],
+            [ _("GiftAid"), "giftaid", "IsGiftAid=1" ],
+            [ _("Homechecked"), "homechecked", "IDCheck=1" ],
+            [ _("Homechecked between two dates"), "homechecktwo", 
+                "DateLastHomeChecked>='$ASK DATE {0}$' AND DateLastHomeChecked<='$ASK DATE {1}$'"
+                .replace("{0}", _("Homechecked between"))
+                .replace("{1}", _("and")) ],
+            [ _("Homechecked by"), "homecheckedby", "IDCheck=1 AND HomeCheckedBy=$ASK PERSON$" ],
+            [ _("Member"), "member", "IsMember=1" ],
+            [ _("No active license held"), "nolicense", "NOT EXISTS(SELECT ID FROM ownerlicence WHERE OwnerID=v_owner.ID " +
+                "AND IssueDate<='$CURRENT_DATE$' AND (ExpiryDate Is Null OR ExpiryDate>'$CURRENT_DATE$'))" ],
+            [ _("Retailer"), "retailer", "IsRetailer=1" ],
+            [ _("Site matches current user"), "site", "SiteID=$SITE$" ],
+            [ _("Staff"), "staff", "IsStaff=1" ],
+            [ _("Vet"), "vet", "IsVet=1" ],
+            [ _("Volunteer"), "volunteer", "IsVolunteer=1" ]
+        ];
+
+        const QB_WAITINGLIST_CRITERIA = [
+            [ _("Put on the list between two dates"), "onlisttwodates", 
+                "DatePutOnList >='$ASK DATE {0}$' AND DatePutOnList <= '$ASK DATE {1}$'"
+                .replace("{0}", _("Put on the list between"))
+                .replace("{1}", _("and")) ],
+            [ _("Removed from the list between two dates"), "removedlisttwodates", 
+                "DateRemovedFromList >='$ASK DATE {0}$' AND DateRemovedFromList <= '$ASK DATE {1}$'"
+                .replace("{0}", _("Removed from the list between"))
+                .replace("{1}", _("and")) ]
         ];
 
     const reports = {
@@ -240,6 +263,7 @@ $(function() {
         qb_incident_criteria: null,
         qb_medical_criteria: null,
         qb_person_criteria: null,
+        qb_waitinglist_criteria: null,
 
         model: function() {
             const dialog = {
@@ -459,6 +483,7 @@ $(function() {
                 '<option value="animalmedicalcombined">' + _("Medical") + '</option>',
                 '<option value="ownerdonation">' + _("Payment") + '</option>',
                 '<option value="owner">' + _("Person") + '</option>',
+                '<option value="animalwaitinglist">' + _("Waiting List") + '</option>',
                 '</select>',
                 '</td>',
                 '</tr><tr>',
@@ -603,8 +628,7 @@ $(function() {
 
         bind_query_builder: function() {
             const expand_additional = function(l) {
-                // Expands additional fields af_ID in a list into subqueries
-                // aliased as af_ID
+                // Expands our fake fields that require subqueries (additional fields, some animal medical info, etc)
                 let o = [];
                 $.each(l, function(i, v) {
                     if (v.indexOf("afc_") == 0) {
@@ -627,13 +651,52 @@ $(function() {
                             "WHERE LinkID=v_" + $("#qbtype").val() + ".ID AND " +
                             "AdditionalFieldID=" + v.substring(4) + ") AS " + v);
                     }
+                    else if (v.indexOf("moneyaf_") == 0) {
+                        // Money additional fields
+                        o.push("(SELECT Value FROM additional WHERE LinkID=v_" + $("#qbtype").val() + 
+                            ".ID AND AdditionalFieldID=" + v.substring(8) + ") AS " + v);
+                    }
                     else if (v.indexOf("af_") == 0) {
+                        // Any other additional fields
                         o.push("(SELECT Value FROM additional WHERE LinkID=v_" + $("#qbtype").val() + 
                             ".ID AND AdditionalFieldID=" + v.substring(3) + ") AS " + v);
+                    }
+                    else if (v.indexOf("testdate_") == 0) {
+                        // Date test given
+                        o.push("(SELECT DateOfTest FROM animaltest WHERE animaltest.ID = " +
+                        "(SELECT MAX(ID) FROM animaltest WHERE DateOfTest Is Not Null AND AnimalID=v_animal.ID " + 
+                        "AND TestTypeID=" + v.substring(9) + ")) AS " + v);
+                    }
+                    else if (v.indexOf("testresult_") == 0) {
+                        // Test result
+                        o.push("(SELECT ResultName FROM animaltest INNER JOIN testresult ON testresult.ID=animaltest.TestResultID " + 
+                        "WHERE animaltest.ID = " +
+                        "(SELECT MAX(ID) FROM animaltest WHERE DateOfTest Is Not Null AND AnimalID=v_animal.ID " + 
+                        "AND TestTypeID=" + v.substring(11) + ")) AS " + v);
+                    }
+                    else if (v.indexOf("vaccdate_") == 0) {
+                        // Date vacc given
+                        o.push("(SELECT DateOfVaccination FROM animalvaccination WHERE animalvaccination.ID = " +
+                        "(SELECT MAX(ID) FROM animalvaccination WHERE DateOfVaccination Is Not Null AND AnimalID=v_animal.ID " + 
+                        "AND VaccinationID=" + v.substring(9) + ")) AS " + v);
                     }
                     else { o.push(v); }
                 });
                 return o;
+            };
+            const expand_var_tokens = function(s) {
+                // If any tokens are found for special criteria that require VAR tokens, add them
+                let tokens = [];
+                if (s.indexOf("$@osatdate$") != -1) {
+                    tokens.push("$VAR osatdate DATE " + _("On shelter at date") + "$");
+                }
+                if (s.indexOf("$@osfrom$") != -1) {
+                    tokens.push("$VAR osfrom DATE " + _("On shelter between") + "$");
+                }
+                if (s.indexOf("$@osto$") != -1) {
+                    tokens.push("$VAR osto DATE " + _("and") + "$");
+                }
+                return s + "\n\n" + tokens.join("\n");
             };
             let qbbuttons = {};
             qbbuttons[_("Update")] = function() {
@@ -650,6 +713,7 @@ $(function() {
                 });
                 if (critout.length > 0) { q += "\nWHERE \n " + critout.join("\n AND "); }
                 if ($("#qbsort").val().length > 0) { q += "\nORDER BY \n " + $("#qbsort").val().join(",\n "); }
+                q = expand_var_tokens(q);
                 $("#sql").sqleditor("value", q);
                 $(this).dialog("close");
             };
@@ -672,17 +736,40 @@ $(function() {
             reports.qb_medical_criteria = Array.from(QB_MEDICAL_CRITERIA);
             reports.qb_payment_criteria = Array.from(QB_PAYMENT_CRITERIA);
             reports.qb_person_criteria = Array.from(QB_PERSON_CRITERIA);
+            reports.qb_waitinglist_criteria = Array.from(QB_WAITINGLIST_CRITERIA);
             $.each(controller.additionalfields, function(i, v) {
-                if (!common.array_in(v.LINKTYPE, ADDITIONAL_ANIMAL)) { return; } // skip non-animal additional fields
-                reports.qb_animal_criteria.push(
-                    [_("Additional field {0} has a value").replace("{0}", v.FIELDNAME), "af" + v.ID,
-                        "EXISTS(SELECT Value FROM additional WHERE AdditionalFieldID=" + v.ID + " AND LinkID=v_animal.ID AND Value<>'')" ]);
+                if (common.array_in(v.LINKTYPE, ADDITIONAL_ANIMAL)) { 
+                    reports.qb_animal_criteria.push(
+                        [_("Additional field {0} has a value").replace("{0}", v.FIELDNAME), "af" + v.ID,
+                            "EXISTS(SELECT Value FROM additional WHERE AdditionalFieldID=" + v.ID + " AND LinkID=v_animal.ID AND Value<>'' AND Value<>'0')" ]);
+                }
+                if (common.array_in(v.LINKTYPE, ADDITIONAL_WAITINGLIST)) { 
+                    reports.qb_waitinglist_criteria.push(
+                        [_("Additional field {0} has a value").replace("{0}", v.FIELDNAME), "af" + v.ID,
+                            "EXISTS(SELECT Value FROM additional WHERE AdditionalFieldID=" + v.ID + " AND LinkID=v_animalwaitinglist.ID AND Value<>'' AND Value<>'0')" ]);
+                }
+                if (common.array_in(v.LINKTYPE, ADDITIONAL_PERSON)) { 
+                    reports.qb_person_criteria.push(
+                        [_("Additional field {0} has a value").replace("{0}", v.FIELDNAME), "af" + v.ID,
+                            "EXISTS(SELECT Value FROM additional WHERE AdditionalFieldID=" + v.ID + " AND LinkID=v_owner.ID AND Value<>'' AND Value<>'0')" ]);
+                }
             });
             $.each(controller.additionalfields, function(i, v) {
-                if (!common.array_in(v.LINKTYPE, ADDITIONAL_ANIMAL)) { return; } // skip non-animal additional fields
-                reports.qb_animal_criteria.push(
-                    [_("Additional field {0} is blank").replace("{0}", v.FIELDNAME), "naf" + v.ID,
-                        "NOT EXISTS(SELECT Value FROM additional WHERE AdditionalFieldID=" + v.ID + " AND LinkID=v_animal.ID AND Value<>'')" ]);
+                if (common.array_in(v.LINKTYPE, ADDITIONAL_ANIMAL)) { 
+                    reports.qb_animal_criteria.push(
+                        [_("Additional field {0} is blank").replace("{0}", v.FIELDNAME), "naf" + v.ID,
+                            "NOT EXISTS(SELECT Value FROM additional WHERE AdditionalFieldID=" + v.ID + " AND LinkID=v_animal.ID AND Value<>'' AND Value<>'0')" ]);
+                }
+                if (common.array_in(v.LINKTYPE, ADDITIONAL_WAITINGLIST)) { 
+                    reports.qb_waitinglist_criteria.push(
+                        [_("Additional field {0} is blank").replace("{0}", v.FIELDNAME), "naf" + v.ID,
+                            "NOT EXISTS(SELECT Value FROM additional WHERE AdditionalFieldID=" + v.ID + " AND LinkID=v_animalwaitinglist.ID AND Value<>'' AND Value<>'0')" ]);
+                }
+                if (common.array_in(v.LINKTYPE, ADDITIONAL_PERSON)) { 
+                    reports.qb_person_criteria.push(
+                        [_("Additional field {0} is blank").replace("{0}", v.FIELDNAME), "naf" + v.ID,
+                            "NOT EXISTS(SELECT Value FROM additional WHERE AdditionalFieldID=" + v.ID + " AND LinkID=v_owner.ID AND Value<>'' AND Value<>'0')" ]);
+                }
             });
             $.each(controller.entryreasons, function(i, v) {
                 reports.qb_animal_criteria.push(
@@ -735,6 +822,8 @@ $(function() {
             $.each(controller.species, function(i, v) {
                 reports.qb_animal_criteria.push(
                     [_("Species is {0}").replace("{0}", v.SPECIESNAME), "species" + v.ID, "SpeciesID=" + v.ID]);
+                reports.qb_waitinglist_criteria.push(
+                    [_("Species is {0}").replace("{0}", v.SPECIESNAME), "species" + v.ID, "SpeciesID=" + v.ID]);
             });
             $.each(controller.testtypes, function(i, v) {
                 reports.qb_animal_criteria.push(
@@ -762,6 +851,10 @@ $(function() {
                 reports.qb_animal_criteria.push(
                     [_("Type is {0}").replace("{0}", v.ANIMALTYPE), "animaltype" + v.ID, "AnimalTypeID=" + v.ID]);
             });
+            $.each(controller.urgencies, function(i, v) {
+                reports.qb_waitinglist_criteria.push(
+                    [_("Urgency is {0}").replace("{0}", v.URGENCY), "urgency" + v.ID, "Urgency=" + v.ID]);
+            });
             $.each(controller.vaccinationtypes, function(i, v) {
                 reports.qb_animal_criteria.push(
                     [_("Vaccination given {0}").replace("{0}", v.VACCINATIONTYPE), "vacc" + v.ID, 
@@ -784,8 +877,6 @@ $(function() {
                         .replace("{1}", _("and"))
                     ]);
             });
-
-
         },
 
         bind_browse_smcom: function() {
@@ -925,8 +1016,9 @@ $(function() {
                 // Outputs criteria into the dropdown. l is the list of criteria reports.qb_x_criteria
                 let crit = [];
                 $.each(l, function(i, v) {
-                    let [ display, value, sql ] = v;
-                    crit.push( value + "|" + display + (sql.indexOf("$ASK") != -1 ? " *" : "") );
+                    let [ display, value, sql ] = v, hasask = "";
+                    if (sql.indexOf("$ASK") != -1 || sql.indexOf("$@") != -1) { hasask = " *"; }
+                    crit.push( value + "|" + display + hasask );
                 });
                 return crit;
             };
@@ -935,12 +1027,16 @@ $(function() {
                 let f = [];
                 $.each(controller.additionalfields, function(i, v) {
                     if ( (t == "animal" && common.array_in(v.LINKTYPE, ADDITIONAL_ANIMAL)) ||
+                        (t == "animalwaitinglist" && common.array_in(v.LINKTYPE, ADDITIONAL_WAITINGLIST)) ||
                         (t == "owner" && common.array_in(v.LINKTYPE, ADDITIONAL_PERSON)) ||
                         (t == "animalcontrol" && common.array_in(v.LINKTYPE, ADDITIONAL_INCIDENT)) ) {
                         // Use different prefixes to indicate the additional field type for
                         // expansion into different query types later
                         if (v.FIELDTYPE == 0) {
                             f.push("afc_" + v.ID + "|" + v.FIELDNAME); // Yes/No (checkbox 1/0)
+                        }
+                        else if (v.FIELDTYPE == 5) {
+                            f.push("moneyaf_" + v.ID + "|" + v.FIELDNAME); // Money (whole pence)
                         }
                         else if (v.FIELDTYPE == 8) {
                             f.push("afa_" + v.ID + "|" + v.FIELDNAME); // Animal link (contains animal ID)
@@ -956,8 +1052,20 @@ $(function() {
                 });
                 return f;
             };
+            const get_animal_medical = function() {
+                // Returns a list of extra animal medical values for the fields dropdown
+                let f = [];
+                $.each(controller.testtypes, function(i, v) {
+                    f.push("testdate_" + v.ID + "|" + _("{0} test performed date").replace("{0}", v.TESTNAME));
+                    f.push("testresult_" + v.ID + "|" + _("{0} test result").replace("{0}", v.TESTNAME));
+                });
+                $.each(controller.vaccinationtypes, function(i, v) {
+                    f.push("vaccdate_" + v.ID + "|" + _("{0} vaccination given date").replace("{0}", v.VACCINATIONTYPE));
+                });
+                return f;
+            };
             if (type == "animal") {
-                $("#qbfields").html(html.list_to_options(common.get_table_columns("v_animal").concat(get_additional(type))));
+                $("#qbfields").html(html.list_to_options(common.get_table_columns("v_animal").concat(get_additional(type)).concat(get_animal_medical())));
                 $("#qbsort").html(html.list_to_options(common.get_table_columns("v_animal").concat(get_additional(type))));
                 $("#qbcriteria").html(html.list_to_options(build_criteria(reports.qb_animal_criteria)));
                 $("#qbfields").change();
@@ -982,6 +1090,15 @@ $(function() {
                 $("#qbsort").change();
                 $("#qbcriteria").change();
                 reports.qb_active_criteria = reports.qb_medical_criteria;
+            }
+            else if (type == "animalwaitinglist") {
+                $("#qbfields").html(html.list_to_options(common.get_table_columns("v_animalwaitinglist").concat(get_additional(type))));
+                $("#qbsort").html(html.list_to_options(common.get_table_columns("v_animalwaitinglist").concat(get_additional(type))));
+                $("#qbcriteria").html(html.list_to_options(build_criteria(reports.qb_waitinglist_criteria)));
+                $("#qbfields").change();
+                $("#qbsort").change();
+                $("#qbcriteria").change();
+                reports.qb_active_criteria = reports.qb_waitinglist_criteria;
             }
             else if (type == "owner") {
                 $("#qbfields").html(html.list_to_options(common.get_table_columns("v_owner").concat(get_additional(type))));

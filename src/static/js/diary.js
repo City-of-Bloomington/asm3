@@ -23,7 +23,8 @@ $(function() {
                     { json_field: "DATECOMPLETED", post_field: "completed", label: _("Completed"), type: "date" },
                     { json_field: "SUBJECT", label: _("Subject"), post_field: "subject", validation: "notblank", type: "text" },
                     { json_field: "NOTE", label: _("Note"), post_field: "note", type: "textarea" },
-                    { json_field: "COMMENTS", label: _("Comments"), post_field: "comments", type: "textarea" }
+                    { json_field: "COMMENTS", label: _("Comments"), post_field: "comments", type: "textarea" },
+                    { json_field: "", label: _("Email this note to recipients now"), post_field: "emailnow", type: "check", readonly: true }
                 ]
             };
 
@@ -65,7 +66,8 @@ $(function() {
                                 $("#subject").show();
                                 $("#note").closest("span").show();
                             }
-
+                            $("#emailnow").prop("checked", config.bool("EmailDiaryOnChange"));
+                            $("#emailnow").closest("tr").hide();
                             // Allow editing of the comments once the diary is created
                             $("#comments").closest("tr").show();
                         }
@@ -285,11 +287,16 @@ $(function() {
 
         sync: function() {
             // If a filter is given in the querystring, update the select
-            if (common.current_url().indexOf("filter=") != -1) {
-                let filterurl = common.current_url().substring(common.current_url().indexOf("filter=")+7);
-                $("#filter").select("value", filterurl);
+            let url_filter = common.querystring_param("filter");
+            if (url_filter) {
+                $("#filter").select("value", url_filter);
             }
-
+            // If an id is given in the querystring, edit that item
+            let url_id = common.querystring_param("id");
+            if (url_id) {
+                let row = common.get_row(controller.rows, url_id, "ID");
+                if (row) { this.table.edit(row); }
+            }
             if (controller.newnote) {
                 diary.new_note();
             }
@@ -319,6 +326,9 @@ $(function() {
 
                     // Hide the comments field for new diary notes
                     $("#comments").closest("tr").hide();
+
+                    $("#emailnow").prop("checked", config.bool("EmailDiaryOnChange"));
+                    $("#emailnow").closest("tr").show();
 
                     // If a default diary person is set, choose them
                     if (config.str("AFDefaultDiaryPerson")) {

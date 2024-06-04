@@ -2,7 +2,7 @@ Licenses expiring between two dates by jurisdiction
 ###
 Animal Control
 ###
-34800/Any rev03
+34800/Any rev05
 ###
 Licenses that expire between the two dates given by jurisdiction, excludes people with renewed licenses and deceased animals
 ###
@@ -12,7 +12,7 @@ SELECT
 ol.LicenceNumber,
 lt.LicenceTypeName,
 j.JurisdictionName, 
-o.OwnerName, a.AnimalName,
+o.OwnerName, o.ID AS OID, a.AnimalName, a.ID AS AID,
 ol.IssueDate, ol.ExpiryDate, ol.Comments
 FROM ownerlicence ol
 INNER JOIN licencetype lt ON lt.ID = ol.LicenceTypeID
@@ -32,6 +32,7 @@ $$GROUP_JurisdictionName
 $$HEAD
 <h2>$JurisdictionName</h2>
 <table border="1">
+<thead>
 <tr>
 <th>Number</th>
 <th>Type</th>
@@ -41,7 +42,10 @@ $$HEAD
 <th>Expires</th>
 <th>Comments</th>
 </tr>
+</thead>
+<tbody>
 $$FOOT
+</tbody>
 </table>
 <p>Total $JurisdictionName: {COUNT.JurisdictionName}</p>
 GROUP$$
@@ -50,8 +54,8 @@ $$BODY
 <tr>
 <td>$LICENCENUMBER</td>
 <td>$LICENCETYPENAME</td>
-<td>$OWNERNAME</td>
-<td>$ANIMALNAME</td>
+<td><a target="_blank" href="person_licence?id=$OID">$OWNERNAME</a></td>
+<td><a target="_blank" href="animal_licence?id=$AID">$ANIMALNAME</a></td>
 <td>$ISSUEDATE</td>
 <td>$EXPIRYDATE</td>
 <td>$COMMENTS</td>
@@ -60,4 +64,3 @@ BODY$$
 
 $$FOOTER
 FOOTER$$
-

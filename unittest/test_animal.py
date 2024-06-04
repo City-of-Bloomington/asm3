@@ -78,6 +78,7 @@ class TestAnimal(unittest.TestCase):
         asm3.animal.get_code(base.get_dbo(), self.nid)
         asm3.animal.get_short_code(base.get_dbo(), self.nid)
         asm3.animal.get_shelter_code(base.get_dbo(), self.nid)
+        asm3.animal.get_animal_name(base.get_dbo(), self.nid)
         asm3.animal.get_animal_namecode(base.get_dbo(), self.nid)
         self.assertNotEqual(0, len(asm3.animal.get_recent_changes(base.get_dbo())))
         self.assertNotEqual(0, len(asm3.animal.get_shelter_animals(base.get_dbo())))
@@ -194,7 +195,7 @@ class TestAnimal(unittest.TestCase):
         asm3.animal.delete_animal(base.get_dbo(), "test", nid)
 
     def test_clone_from_template(self):
-        asm3.animal.clone_from_template(base.get_dbo(), "test", self.nid, base.today(), base.today(), 1, 1)
+        asm3.animal.clone_from_template(base.get_dbo(), "test", self.nid, base.today(), base.today(), 1, 1, 0)
 
     def test_merge_animal(self):
         cid = asm3.animal.clone_animal(base.get_dbo(), "test", self.nid)
@@ -279,6 +280,12 @@ class TestAnimal(unittest.TestCase):
     def test_update_all_variable_animal_data(self):
         base.execute("DELETE FROM configuration WHERE ItemName LIKE 'VariableAnimalDataUpdated'")
         asm3.animal.update_all_variable_animal_data(base.get_dbo())
+
+    def test_update_foster_variable_animal_data(self):
+        asm3.animal.update_foster_variable_animal_data(base.get_dbo())
+
+    def test_update_on_shelter_variable_animal_data(self):
+        asm3.animal.update_on_shelter_variable_animal_data(base.get_dbo())
 
     def test_update_all_animal_statuses(self):
         asm3.animal.update_all_animal_statuses(base.get_dbo())

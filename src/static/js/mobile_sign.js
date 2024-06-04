@@ -123,13 +123,11 @@ $(document).ready(function() {
         $("#review").slideDown();
     });
 
-    if (controller.mobileapp) { $("#sig-logout").hide(); }
-
     $("#waiting-container").toggle(controller.count == 0);
     $("#signing-container").toggle(controller.count != 0);
 
     $("#sig-home").click(function() {
-        window.location = "mobile";
+        window.location = "mobile2";
     });
 
     $("#sig-refresh").click(function() {

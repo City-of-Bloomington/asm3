@@ -22,7 +22,8 @@ The service requires the following parameters:
 * account: If this is a sheltermanager.com service call, the user's account
   number. Can be omitted for other installations.
 
-* username: A valid ASM user.
+* username: A valid ASM user. For the majority of calls, this user must
+  have the "View Animal" permission.
 
 * password: A valid ASM password. From a security standpoint, it's better to
   create at least one ASM user dedicated to calling the service to assist with
@@ -692,10 +693,10 @@ animal_view_adoptable_html
 
 Returns a complete HTML document that references animal_view_adoptable_js to
 show a list of adoptable animals. It looks for an HTML template called
-"animalviewadoptables" and falls back to a basic internal template if it does
+"animalviewadoptable" and falls back to a basic internal template if it does
 not exist::
 
-    http://localhost:5000/service?method=&animal_view_adoptable_html
+    http://localhost:5000/service?method=animal_view_adoptable_html
 
 csv_import
 ----------
@@ -739,7 +740,7 @@ you can pass those too just like with html_report::
     http://localhost:5000/service?method=csv_report&username=user&password=letmein&title=Detailed+Shelter+Inventory
 
 json_mail and json_report
------------------------
+-------------------------
 
 .. rubric:: Cache time: 10 minutes
 
@@ -856,6 +857,43 @@ days::
     http://localhost:5000/service?method=html_deceased_animals&template=littlebox&speciesid=1&days=60
     http://localhost:5000/service?method=html_deceased_animals&order=deceased_desc
 
+html_events
+-----------
+
+.. rubric:: Cache time: 1 hour
+
+Returns a complete HTML document of shelter fundraising/adoption events
+from :menuselection:`ASM --> Events --> Edit Events`
+
+Looks for an HTML template called "events" to use. A basic template will be 
+used if the template does not exist. The template can include the following tokens:
+
+$$NAME$$ 
+    The name of the event.
+$$DESCRIPTION$$
+    The event description. Note that this value is editable HTML from the screen.
+$$STARTDATE$$
+    The start date/time. 
+$$ENDDATE$$
+    The end date/time.
+$$ADDRESS$$
+    The event address.
+$$CITY$$ / $$TOWN$$
+    The event city (town for non-US).
+$$STATE$$ / $$COUNTY$$
+    The event state (county/region for non-US).
+$$ZIPCODE$$ / $$POSTCODE$$
+    The event zip/postal code.
+$$COUNTRY
+    The event country.
+
+A "count" parameter can be passed to return the most recent X events (default 10)
+and a "template" parameter can set the name of the template to use.
+
+This is useful for including a page of events on your website::
+
+    http://localhost:5000/service?method=html_events&template=events&count=20
+
 html_flagged_animals
 ----------------------
 
@@ -910,7 +948,25 @@ order within the SQL. If you run the report within the ASM frontend you will
 see the parameters it requires in the address bar::
 
     http://localhost:5000/service?method=html_report&username=user&password=letmein&title=Detailed+Shelter+Inventory
-   
+
+html_stray_animals
+----------------------
+
+.. rubric:: Cache time: 30 minutes
+
+Returns a complete HTML document containing an HTML page of current stray animals.
+
+An "order" parameter can be passed to indicate the sort order (see
+html_adopted_animals). The default is entered date descending.
+
+You can pass an HTML template name in an optional "template" parameter (leaving
+it off will cause animalview to be used). It is also possible to pass
+speciesid=X or animaltypeid=X parameters to only output animals of that species
+and type. In the default dataset, speciesid=1 is Dogs and speciesid=2 is cats::
+
+    http://localhost:5000/service?method=html_stray_animals&template=littlebox&speciesid=1&order=holduntildate_desc
+    http://localhost:5000/service?method=html_stray_animals
+
 json_adoptable_animal and xml_adoptable_animal
 ----------------------------------------------
 
@@ -934,6 +990,22 @@ determines whether the format returned is JSON or XML::
 
     http://localhost:5000/service?method=xml_adoptable_animals&username=user&password=letmein
 
+json_adopted_animals and xml_adopted_animals
+--------------------------------------------
+
+.. rubric:: Cache time: 30 minutes
+
+Returns a dataset containing animals adopted between two dates as passed in the
+"fromdate" and "todate" parameters. The dates themselves should be formatted
+for the current database locale (eg: M/D/Y for US locales, D/M/Y for European,
+Y/M/D for some Asian locales, etc).
+
+Note that the "View Movement" permission is required to call this method.
+
+The method name determines whether the format returned is JSON or XML::
+
+    http://localhost:5000/service?method=json_adopted_animals&username=user&password=letmein&fromdate=01/01/2020&todate=12/31/2021
+
 json_lost_animals, xml_lost_animals, json_found_animals, xml_found_animals
 --------------------------------------------------------------------------
 
@@ -953,7 +1025,7 @@ json_held_animals and xml_held_animals
 Returns a dataset containing all animals currently held. The method
 determines whether the format returned is JSON or XML::
 
-    http://localhost:5000/service?method=xml_adoptable_animals&username=user&password=letmein
+    http://localhost:5000/service?method=json_held_animals&username=user&password=letmein
 
 json_recent_adoptions and xml_recent_adoptions
 ----------------------------------------------
@@ -992,6 +1064,16 @@ information of fosterers and surrenders) will be stripped from the results. If
 you wish them to be included, pass an extra sensitive=1 parameter::
 
     http://localhost:5000/service?method=xml_shelter_animals&username=user&password=letmein&sensitive=1
+
+json_stray_animals and xml_stray_animals
+--------------------------------------
+
+.. rubric:: Cache time: 1 hour 
+
+Returns a dataset containing all stray animals in the care of the shelter. The method
+determines whether the format returned is JSON or XML::
+
+    http://localhost:5000/service?method=json_stray_animals&username=user&password=letmein
 
 media_file
 ----------

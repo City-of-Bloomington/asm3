@@ -189,21 +189,41 @@ feed readers.
 Included templates
 ^^^^^^^^^^^^^^^^^^
 
-ASM comes with a number of site templates – plain, rss, littlebox and sm.com. 
+ASM comes with a number of website templates out of the box. As well as working
+with static HTML building, they can also be used with the template parameter to
+various html service methods (eg: html_adoptable_animals)
 
-* plain produces very simple HTML output - just the animal's picture and a few
+* plain: produces very simple HTML output - just the animal's picture and a few
   details in a list.
 
-* rss produces XML output for interpreting by an RSS feed reader.
+* rss: produces XML output for interpreting by an RSS feed reader.
 
-* sm.com uses CSS hover elements and javascript to do image substitution for
+* sm.com: uses CSS hover elements and javascript to do image substitution for
   icons and other tricks.
 
-* littlebox is also more advanced, using CSS overlays and popups.
+* littlebox: a more advanced template that shows a screen of thumbnails with
+  a clickable popup for each animal, using CSS overlays.
 
-* responsive uses relative sizings to work equally well on mobile devices. It
+* responsive: uses relative sizings to work equally well on mobile devices. It
   is not dissimilar to plain, but also features the ability to click an
   animal's photo for more information.
+
+* slideshow: loads the images of all animals into a rotating carousel, producing
+  a slideshow of all adoptable animals. This template is very useful if you 
+  want to display it full screen on a TV in reception, etc.
+
+* animalview: Used for displaying one animal generally. This is the default target of
+  the animal_view service method and is the target for thumbnails injected by
+  the javascript include code snippet (which loads the javascript from the
+  animal_view_adoptable_js service method).
+
+* animalviewcarousel: Just like animalview, but has a rotating carousel/slideshow 
+  of images for that animal.
+
+* animalviewadoptable: This is the template used by the animal_view_adoptable_html
+  service method, which injects the animal_view_adoptable_js service call into
+  a page. It is useful for creating a page of thumbnails to link to for users
+  who cannot edit their websites to include the javascript code snippet.
 
 You can edit these templates under :menuselection:`Publishing --> Edit HTML
 Publishing Templates` and add your own new ones if desired. Templates are made
@@ -496,11 +516,7 @@ sheltermanager.com account number. This is so they can tie your organisation
 to the incoming data.
 
 Next, go to :menuselection:`Publish --> Set Publishing Options -->
-ShelterAnimalsCount` and configure the entry categories in your database that
-represent Stray, Surrender and TNR. It is likely you will only have one for
-Stray and TNR, but may have many entry categories that correspond to a
-surrender. There is no config for transfers as we use the "Transfer In" tickbox
-on the animal's record to determine that. 
+ShelterAnimalsCount` and check the "Enabled" box. 
 
 Like the other publishers, shelteranimalscount will run automatically overnight
 to send updates and does not require any interaction.
@@ -623,6 +639,10 @@ microchip (their microchips are 15 digits and start with 98102) that have been
 adopted and sends their information and new owner info to PetLink to update
 their records. If an animal is returned and adopted out again later, ASM will
 automatically update PetLink again.
+
+There is an option in the configuration to send 15 digit microchips from all
+US manufacturers (anything starting with a 9) to PetLink if you have enabled
+this in your account with them.
 
 SmartTag
 --------

@@ -27,7 +27,7 @@ VALID_FIELDS = [
     "ANIMALPICKUPLOCATION", "ANIMALPICKUPADDRESS", "ANIMALSPECIES", "ANIMALAGE", 
     "ANIMALDECEASEDDATE", "ANIMALDECEASEDREASON", "ANIMALDECEASEDNOTES", "ANIMALEUTHANIZED", 
     "ANIMALCOMMENTS", "ANIMALDESCRIPTION", "ANIMALMARKINGS", "ANIMALNEUTERED", "ANIMALNEUTEREDDATE", "ANIMALMICROCHIP", "ANIMALMICROCHIPDATE", 
-    "ANIMALENTRYDATE", "ANIMALENTRYCATEGORY", "ANIMALFLAGS",
+    "ANIMALENTRYDATE", "ANIMALENTRYCATEGORY", "ANIMALENTRYTYPE", "ANIMALFLAGS",
     "ANIMALREASONFORENTRY", "ANIMALHIDDENDETAILS", "ANIMALNOTFORADOPTION", "ANIMALNONSHELTER", "ANIMALTRANSFER",
     "ANIMALGOODWITHCATS", "ANIMALGOODWITHDOGS", "ANIMALGOODWITHKIDS", 
     "ANIMALHOUSETRAINED", "ANIMALHEALTHPROBLEMS", "ANIMALIMAGE",
@@ -75,7 +75,7 @@ def gks(m: Dict, f: str) -> str:
     """ reads field f from map m, returning a string. 
         string is empty if key not present """
     if f not in m: return ""
-    return str(asm3.utils.strip_non_ascii(m[f]))
+    return str(m[f])
 
 def gkd(dbo: Database, m: Dict, f: str, usetoday: bool = False) -> datetime:
     """ reads field f from map m, returning a display date. 
@@ -232,7 +232,7 @@ def row_error(errors: List, rowtype: str, rowno: int, row: Dict, e: Any, dbo: Da
     exinfo: execution info for logging
     """
     errmsg = str(e)
-    if type(e) == asm3.utils.ASMValidationError: errmsg = e.getMsg()
+    if isinstance(e, asm3.utils.ASMValidationError): errmsg = e.getMsg()
     # If ANIMALIMAGE contains a data-uri, squash it for legibility
     if "ANIMALIMAGE" in row and row["ANIMALIMAGE"].startswith("data"):
         row["ANIMALIMAGE"] = "data:,"
@@ -241,12 +241,15 @@ def row_error(errors: List, rowtype: str, rowno: int, row: Dict, e: Any, dbo: Da
 
 def csvimport(dbo: Database, csvdata: bytes, encoding: str = "utf-8-sig", user: str = "", 
               createmissinglookups: bool = False, cleartables: bool = False, 
-              checkduplicates: bool = False, prefixanimalcodes: bool = False, 
+              checkduplicates: bool = True, prefixanimalcodes: bool = False, 
               entrytoday: bool = False, htmlresults: bool = True) -> str:
     """
     Imports csvdata (bytes string, encoded with encoding)
     createmissinglookups: If a lookup value is given that's not in our data, add it
     cleartables: Clear down the animal, owner and adoption tables before import
+    checkduplicates: Try to attach to existing records if they exist, there is no scenario really
+        where this should be false, unless you want to force new records but have no ability to
+        attach extra records to these imported ones.
     prefixanimalcodes: Add a prefix to shelter codes to avoid clashes with the existing records
     entrytoday: Set ANIMALENTRYDATE to today - useful for importing animals being transferred in
     htmlresults: Return the results as an HTML table. If false, returns a JSON document
@@ -432,6 +435,9 @@ def csvimport(dbo: Database, csvdata: bytes, encoding: str = "utf-8-sig", user: 
             a["pickupaddress"] = gks(row, "ANIMALPICKUPADDRESS")
             if a["pickupaddress"] != "":
                 a["pickedup"] = "on"
+            a["entrytype"] = gkl(dbo, row, "ANIMALENTRYTYPE", "lksentrytype", "AnimalEntryType", False)
+            if a["entrytype"] == "0":
+                a["entrytype"] = str(asm3.configuration.default_entry_type(dbo))
             a["entryreason"] = gkl(dbo, row, "ANIMALENTRYCATEGORY", "entryreason", "ReasonName", createmissinglookups)
             if a["entryreason"] == "0":
                 a["entryreason"] = str(asm3.configuration.default_entry_reason(dbo))
@@ -1329,6 +1335,7 @@ def csvexport_animals(dbo: Database, dataset: str, animalids: str = "", where: s
         row["ANIMALMARKINGS"] = a["MARKINGS"]
         row["ANIMALREASONFORENTRY"] = a["REASONFORENTRY"]
         row["ANIMALENTRYCATEGORY"] = a["ENTRYREASONNAME"]
+        row["ANIMALENTRYTYPE"] = a["ENTRYTYPENAME"]
         row["ANIMALJURISDICTION"] = a["JURISDICTIONNAME"]
         row["ANIMALPICKUPLOCATION"] = asm3.utils.iif(a["ISPICKUP"] == 1, a["PICKUPLOCATIONNAME"], "")
         row["ANIMALPICKUPADDRESS"] = a["PICKUPADDRESS"]
@@ -1414,10 +1421,12 @@ def csvexport_animals(dbo: Database, dataset: str, animalids: str = "", where: s
                         row["ANIMALIMAGE"] = "%s?account=%s&method=media_file&mediaid=%s" % (SERVICE_URL, dbo.database, m["ID"])
                     elif m["MEDIANAME"].endswith(".pdf"):
                         row["ANIMALPDFNAME"] = m["MEDIANOTES"]
+                        if row["ANIMALPDFNAME"].strip() == "": row["ANIMALPDFNAME"] = "doc.pdf"
                         #row["ANIMALPDFDATA"] = "data:application/pdf;base64,%s" % asm3.utils.base64encode(mdata)
                         row["ANIMALPDFDATA"] = "%s?account=%s&method=media_file&mediaid=%s" % (SERVICE_URL, dbo.database, m["ID"])
                     elif m["MEDIANAME"].endswith(".html"):
                         row["ANIMALHTMLNAME"] = m["MEDIANOTES"]
+                        if row["ANIMALHTMLNAME"].strip() == "": row["ANIMALHTMLNAME"] = "doc.html"
                         #row["ANIMALHTMLDATA"] = "data:text/html;base64,%s" % asm3.utils.base64encode(mdata)
                         row["ANIMALHTMLDATA"] = "%s?account=%s&method=media_file&mediaid=%s" % (SERVICE_URL, dbo.database, m["ID"])
                     out.write(tocsv(row))

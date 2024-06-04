@@ -36,6 +36,30 @@ class PaymentProcessor(object):
         """
         raise NotImplementedError()
 
+    def _checkForZeroPaymentPage(self, payref: str, totalamount: int) -> str:
+        """ 
+        Should be called by implementations of checkoutPage.
+        If the total amount to be paid is 0, calls markPaymentReceived instead 
+        and returns some text instead of the checkoutPage.
+        This is useful for testing scenarios where payments are to be
+        received without having to use full test harnesses from the payment processor -
+        just make your payment $0.
+        Otherwise, an empty string is returned.
+        """
+        if totalamount == 0:
+            self.markPaymentReceived(payref, "ZEROPAYMENT", 0, 0, 0, "ZERO PAYMENT NO CALL MADE")
+            return "<!DOCTYPE html>\n" \
+                "<html>\n" \
+                "<head>\n" \
+                "<title>Zero payment</title>\n" \
+                "</head>\n" \
+                "<body>\n" \
+                "<h1>Zero payment</h1>\n" \
+                "<p>Payment is for 0, marking as received without calling processor.</p\n>" \
+                "</body>\n" \
+                "</html>"
+        return ""
+
     def getDataParam(self, data: str, p: str) -> str:
         """ Returns a URL encoded parameter p from data (str). """
         for b in data.split("&"):
@@ -75,6 +99,7 @@ class PaymentProcessor(object):
         rawdata (str): The raw data from the payment service.
         The fee is only applied to the first payment if there are multiple payments in the payref.
         It is expected that received, vat and fee are all integer currency amounts in whole pence.
+        If there are licenses waiting to renew on this payment, handles calling out to that functionality too.
         """
         receiptnumber = self.getReceiptNumber(payref)
         rows = self.dbo.query("select donation, id from ownerdonation where receiptnumber=?", [receiptnumber])
@@ -84,6 +109,7 @@ class PaymentProcessor(object):
                 chequenumber=trxid,
                 fee=asm3.utils.iif(i==0 and fee>0, fee, 0),
                 rawdata=rawdata )
+            asm3.financial.renew_licence_payref(self.dbo, payref)
 
     def validatePaymentReference(self, payref: str) -> bool:
         """

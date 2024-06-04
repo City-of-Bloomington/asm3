@@ -69,7 +69,6 @@ def email_note_on_change(dbo: Database, n: ResultRow, username: str) -> None:
     Emails the recipients of a diary note n with the note content
     username the user triggering the send by adding/updating a diary
     """
-    if not asm3.configuration.email_diary_on_change(dbo): return
     if n is None: return
     l = dbo.locale
     allusers = asm3.users.get_users(dbo)
@@ -95,7 +94,6 @@ def email_note_on_complete(dbo: Database, n: ResultRow, username: str) -> None:
     Emails the creator of a diary note n with the note's content 
     username the user triggering the send by completing a diary
     """
-    if not asm3.configuration.email_diary_on_complete(dbo): return
     if n is None: return
     l = dbo.locale
     allusers = asm3.users.get_users(dbo)
@@ -196,29 +194,43 @@ def complete_diary_note(dbo: Database, username: str, diaryid: int) -> None:
     """
     Marks a diary note completed as of right now
     """
+    row = get_diary(dbo, diaryid)
+    # Re-set the link fields so that the completion date is audited properly
     dbo.update("diary", diaryid, {
-        "DateCompleted": dbo.today()
+        "DateCompleted": dbo.today(),
+        "LinkType": row.LINKTYPE,
+        "LinkID": row.LINKID
     }, username)
-    email_note_on_complete(dbo, get_diary(dbo, diaryid), username)
+    if asm3.configuration.email_diary_on_complete(dbo):
+        email_note_on_complete(dbo, get_diary(dbo, diaryid), username)
 
 def complete_diary_notes_for_animal(dbo: Database, username: str, animalid: int) -> None:
     """
-    Marks all diary notes for an animal complete.
+    Marks all incomplete diary notes for an animal complete.
     """
-    dbo.update("diary", "LinkType=%d AND LinkID=%d" % (ANIMAL, animalid), {
-        "DateCompleted": dbo.today()
-    }, username)
-    for n in dbo.query("SELECT ID FROM diary WHERE LinkType=%d AND LinkID=%d" % (ANIMAL, animalid)):
-        email_note_on_complete(dbo, get_diary(dbo, n.id), username)
+    rows = dbo.query("SELECT * FROM diary WHERE LinkType=? AND LinkID=? AND DateCompleted Is Null", (ANIMAL, animalid))
+    for r in rows:
+        # Re-set the link fields so that the completion date is audited properly
+        dbo.update("diary", r.ID, {
+            "DateCompleted": dbo.today(),
+            "LinkType": r.LINKTYPE,
+            "LinkID": r.LINKID
+        }, username)
+        if asm3.configuration.email_diary_on_complete(dbo):
+            email_note_on_complete(dbo, r, username)
 
 def rediarise_diary_note(dbo: Database, username: str, diaryid: int, newdate: datetime) -> None:
     """
     Moves a diary note on to the date supplied (newdate is a python date)
     """
+    row = get_diary(dbo, diaryid)
+    # Re-set the link fields so that the completion date is audited properly
     dbo.update("diary", diaryid, {
-        "DiaryDateTime": newdate
+        "DiaryDateTime": newdate,
+        "LinkType": row.LINKTYPE,
+        "LinkID": row.LINKID
     }, username)
-    email_note_on_change(dbo, get_diary(dbo, diaryid), username)
+    email_note_on_change(dbo, row, username)
 
 def get_animal_tasks(dbo: Database) -> Results:
     """
@@ -228,7 +240,9 @@ def get_animal_tasks(dbo: Database) -> Results:
         "WHEN EXISTS(SELECT dtd.* FROM diarytaskdetail dtd WHERE " \
         "DiaryTaskHeadID = dth.ID AND dtd.DayPivot = 9999) THEN 1 " \
         "ELSE 0 END AS NEEDSDATE " \
-        "FROM diarytaskhead dth WHERE dth.RecordType = %d" % ANIMAL_TASK)
+        "FROM diarytaskhead dth " \
+        "WHERE dth.RecordType = ? " \
+        "ORDER BY dth.Name", [ANIMAL_TASK])
 
 def get_person_tasks(dbo: Database) -> Results:
     """
@@ -238,7 +252,9 @@ def get_person_tasks(dbo: Database) -> Results:
         "WHEN EXISTS(SELECT dtd.* FROM diarytaskdetail dtd WHERE " \
         "DiaryTaskHeadID = dth.ID AND dtd.DayPivot = 9999) THEN 1 " \
         "ELSE 0 END AS NEEDSDATE " \
-        "FROM diarytaskhead dth WHERE dth.RecordType = %d" % PERSON_TASK)
+        "FROM diarytaskhead dth " \
+        "WHERE dth.RecordType = ? " \
+        "ORDER BY dth.Name", [PERSON_TASK])
 
 def get_diarytasks(dbo: Database) -> Results:
     """
@@ -362,10 +378,11 @@ def insert_diary_from_form(dbo: Database, username: str, linktypeid: int, linkid
         "DateCompleted":    post.date("completed")
     }, username)
 
-    email_note_on_change(dbo, get_diary(dbo, diaryid), username)
+    if post.boolean("emailnow"): 
+        email_note_on_change(dbo, get_diary(dbo, diaryid), username)
     return diaryid
 
-def insert_diary(dbo: Database, username: str, linktypeid: int, linkid: int, diarydate: datetime, diaryfor: str, subject: str, note: str) -> int:
+def insert_diary(dbo: Database, username: str, linktypeid: int, linkid: int, diarydate: datetime, diaryfor: str, subject: str, note: str, emailnow: bool = False) -> int:
     """
     Creates a diary note from the form data
     username: User creating the diary
@@ -388,7 +405,8 @@ def insert_diary(dbo: Database, username: str, linktypeid: int, linkid: int, dia
         "Note":             note
     }, username)
 
-    email_note_on_change(dbo, get_diary(dbo, diaryid), username)
+    if asm3.configuration.email_diary_on_change(dbo): 
+        email_note_on_change(dbo, get_diary(dbo, diaryid), username)
     return diaryid
 
 def update_diary_from_form(dbo: Database, username: str, post: PostedData) -> None:
@@ -420,9 +438,11 @@ def update_diary_from_form(dbo: Database, username: str, post: PostedData) -> No
     }, username)
 
     if post.date("completed") is None:
-        email_note_on_change(dbo, get_diary(dbo, diaryid), username)
+        if post.boolean("emailnow"): 
+            email_note_on_change(dbo, get_diary(dbo, diaryid), username)
     else:
-        email_note_on_complete(dbo, get_diary(dbo, diaryid), username)
+        if asm3.configuration.email_diary_on_complete(dbo):
+            email_note_on_complete(dbo, get_diary(dbo, diaryid), username)
 
 def execute_diary_task(dbo: Database, username: str, tasktype: int, taskid: int, linkid: int, selecteddate: datetime) -> None:
     """

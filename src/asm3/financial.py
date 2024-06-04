@@ -2,6 +2,7 @@
 import asm3.al
 import asm3.audit
 import asm3.animal
+import asm3.cachedisk
 import asm3.configuration
 import asm3.i18n
 import asm3.movement
@@ -130,7 +131,7 @@ def get_licence_query(dbo: Database) -> str:
         "x.Sex, s.SpeciesName, " \
         "o.OwnerTitle, o.OwnerInitials, o.OwnerSurname, o.OwnerForenames, o.OwnerName, o.OwnerCode, " \
         "o.OwnerAddress, o.OwnerTown, o.OwnerCounty, o.OwnerPostcode, " \
-        "o.HomeTelephone, o.WorkTelephone, o.MobileTelephone " \
+        "o.HomeTelephone, o.WorkTelephone, o.MobileTelephone, o.EmailAddress " \
         "FROM ownerlicence ol " \
         "LEFT OUTER JOIN licencetype lt ON lt.ID = ol.LicenceTypeID " \
         "LEFT OUTER JOIN owner o ON o.ID = ol.OwnerID " \
@@ -142,10 +143,14 @@ def get_voucher_query(dbo: Database) -> str:
     return "SELECT ov.*, v.VoucherName, o.OwnerName, " \
         "o.OwnerAddress, o.OwnerTown, o.OwnerCounty, o.OwnerPostcode, " \
         "o.HomeTelephone, o.WorkTelephone, o.MobileTelephone, o.EmailAddress, o.AdditionalFlags, " \
+        "vo.OwnerName AS VetName, " \
+        "vo.OwnerAddress AS VetAddress, vo.OwnerTown AS VetTown, vo.OwnerCounty AS VetCounty, vo.OwnerPostcode AS VetPostcode, " \
+        "vo.WorkTelephone AS VetTelephone, vo.EmailAddress AS VetEmailAddress, " \
         "a.AnimalName, a.ShelterCode, a.ShortCode " \
         "FROM ownervoucher ov " \
         "LEFT OUTER JOIN voucher v ON v.ID = ov.VoucherID " \
         "LEFT OUTER JOIN owner o ON o.ID = ov.OwnerID " \
+        "LEFT OUTER JOIN owner vo ON vo.ID = ov.VetID " \
         "LEFT OUTER JOIN animal a ON ov.AnimalID = a.ID "
 
 def get_account_code(dbo: Database, accountid: int) -> str:
@@ -299,13 +304,23 @@ def get_balance_fromto_date(dbo: Database, accountid: int, fromdate: datetime, t
     #if r.accounttype == INCOME or r.accounttype == EXPENSE: balance = abs(balance)
     return balance
 
-def mark_reconciled(dbo: Database, trxid: int) -> None:
+def mark_trx_reconciled(dbo: Database, username: str, trxid: int) -> None:
     """
     Marks a transaction reconciled.
     """
     dbo.update("accountstrx", trxid, {
         "Reconciled": 1
+    }, username, setLastChanged = False)
+
+def mark_account_reconciled(dbo: Database, username: str, acid: int) -> None:
+    """
+    Marks all transactions in an account reconciled
+    """
+    code = dbo.query_string("SELECT Code FROM accounts WHERE ID = ?", [acid])
+    dbo.update("accountstrx", f"SourceAccountID={acid} OR DestinationAccountID={acid}", {
+        "Reconciled": 1
     })
+    asm3.audit.edit(dbo, username, "accounts", acid, "", f"reconciled all trx for {acid}: {code}")
 
 def get_transactions(dbo: Database, accountid: int, datefrom: datetime, dateto: datetime, reconciled: int = BOTH) -> Results:
     """
@@ -419,7 +434,7 @@ def get_movement_donations(dbo: Database, mid: int) -> Results:
 
 def get_next_receipt_number(dbo: Database) -> str:
     """ Returns the next receipt number for the frontend """
-    return asm3.utils.padleft( asm3.utils.cache_sequence(dbo, "receipt", "SELECT MAX(ReceiptNumber) FROM ownerdonation"), 8 )
+    return asm3.utils.padleft( dbo.get_id_cache_pk("receiptnum", "SELECT MAX(ReceiptNumber) FROM ownerdonation"), 8 )
 
 def get_donations(dbo: Database, offset: str = "m31") -> Results:
     """
@@ -615,6 +630,18 @@ def get_licence(dbo: Database, licenceid: int) -> ResultRow:
     """
     return dbo.first_row( dbo.query(get_licence_query(dbo) + "WHERE ol.ID = ?", [licenceid]) )
 
+def get_licence_token(dbo: Database, token: str) -> ResultRow:
+    """
+    Returns a single licence by renewal token
+    """
+    return dbo.first_row( dbo.query(get_licence_query(dbo) + "WHERE ol.Token = ?", [token]) )
+
+def get_licence_fee(dbo: Database, licencetypeid: int) -> int:
+    """
+    Returns the licence fee amount from the selected licence type
+    """
+    return dbo.query_int("SELECT DefaultCost FROM licencetype WHERE ID=?", [licencetypeid])
+
 def get_licences(dbo: Database, offset: str = "i31") -> Results:
     """
     Returns a recordset of licences 
@@ -628,6 +655,13 @@ def get_licences(dbo: Database, offset: str = "i31") -> Results:
     if offset.startswith("e"):
         return dbo.query(get_licence_query(dbo) + " WHERE ol.ExpiryDate >= ? AND ol.ExpiryDate <= ? ORDER BY ol.ExpiryDate DESC", 
             (dbo.today(offsetdays*-1), dbo.today()))
+    
+def get_licences_payref(dbo: Database, payref: str) -> Results:
+    """
+    Returns licenses that are paid for by payref (used by paymentprocessor code 
+    to renew licences on receipt of payment)
+    """
+    return dbo.query(get_licence_query(dbo) + " WHERE ol.PaymentReference = ?", [payref])
 
 def get_person_vouchers(dbo: Database, personid: int) -> Results:
     """
@@ -1301,6 +1335,7 @@ def insert_voucher_from_form(dbo: Database, username: str, post: PostedData) -> 
         "DateIssued":   post.date("issued"),
         "DateExpired":  post.date("expires"),
         "DatePresented": post.date("presented"),
+        "VetID":        post.integer("vet"),
         "Value":        post.integer("amount"),
         "Comments":     post["comments"]
     }, username)
@@ -1317,6 +1352,7 @@ def update_voucher_from_form(dbo: Database, username: str, post: PostedData) -> 
         "DateIssued":   post.date("issued"),
         "DateExpired":  post.date("expires"),
         "DatePresented": post.date("presented"),
+        "VetID":        post.integer("vet"),
         "Value":        post.integer("amount"),
         "Comments":     post["comments"]
     }, username)
@@ -1336,7 +1372,7 @@ def insert_boarding_from_form(dbo: Database, username: str, post: PostedData) ->
     if None is post.date("indate") or None is post.date("outdate"):
         raise asm3.utils.ASMValidationError(asm3.i18n._("Boarding records must have valid check in and out dates.", l))
     if post.date("indate") > post.date("outdate"):
-        raise asm3.utils.ASMValidationError(asm3.i18n._("Check out date cannot be later than check in date.", l))
+        raise asm3.utils.ASMValidationError(asm3.i18n._("Check in date cannot be later than check out date.", l))
 
     boardingid = dbo.insert("animalboarding", {
         "AnimalID":         post.integer("animal"),
@@ -1367,7 +1403,7 @@ def update_boarding_from_form(dbo: Database, username: str, post: PostedData) ->
     if None is post.date("indate") or None is post.date("outdate"):
         raise asm3.utils.ASMValidationError(asm3.i18n._("Boarding records must have valid check in and out dates.", l))
     if post.date("indate") > post.date("outdate"):
-        raise asm3.utils.ASMValidationError(asm3.i18n._("Check out date cannot be later than check in date.", l))
+        raise asm3.utils.ASMValidationError(asm3.i18n._("Check in date cannot be later than check out date.", l))
 
     dbo.update("animalboarding", post.integer("boardingid"), {
         "AnimalID":         post.integer("animal"),
@@ -1462,6 +1498,7 @@ def insert_licence_from_form(dbo: Database, username: str, post: PostedData) -> 
         "LicenceFee":       post.integer("fee"),
         "Token":            token,
         "Renewed":          0,
+        "PaymentReference": "",
         "IssueDate":        post.date("issuedate"),
         "ExpiryDate":       post.date("expirydate"),
         "Comments":         post["comments"]
@@ -1518,6 +1555,35 @@ def update_licence_renewed(dbo: Database, username: str, typeid: int, personid: 
                 "Renewed": renewed 
             }, username)
     return len(rows)
+
+def renew_licence_payref(dbo: Database, payref: str) -> None:
+    """
+    Finds the licences paid for by payref and marks them renewed.
+    For each licence, it creates a new licence with an issued date of last expiry.
+    The fee will be the default cost from the licence type.
+    """
+    for r in dbo.query(get_licence_query(dbo) + " WHERE PaymentReference = ?", [payref]):
+        asm3.al.debug(f"renewing licence {r.ID} ({r.LICENCENUMBER}) from payref {payref}", "financial.renew_licence_payref", dbo)
+        dbo.update("ownerlicence", r.ID, { "Renewed": 1 }, "system")
+        token = asm3.utils.uuid_b64().replace("=", "")
+        lt = dbo.first_row(dbo.query("SELECT DefaultCost, RescheduleDays FROM licencetype WHERE ID=?", [r.LICENCETYPEID]))
+        issuedate = r.EXPIRYDATE
+        expirydate = asm3.i18n.add_days(issuedate, lt.RESCHEDULEDAYS or 365) # default to a year if there's no rescheduledays
+        dbo.insert("ownerlicence", {
+            "OwnerID":          r.OWNERID,
+            "AnimalID":         r.ANIMALID,
+            "LicenceTypeID":    r.LICENCETYPEID,
+            "LicenceNumber":    r.LICENCENUMBER,
+            "LicenceFee":       lt.DEFAULTCOST,
+            "Token":            token,
+            "Renewed":          0,
+            "PaymentReference": "",
+            "IssueDate":        issuedate,
+            "ExpiryDate":       expirydate,
+            "Comments":         r.COMMENTS
+        }, "system")
+        # Remove the cached checkout info
+        asm3.cachedisk.delete(r.TOKEN, dbo.database)
 
 def delete_licence(dbo: Database, username: str, lid: int) -> None:
     """

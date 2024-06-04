@@ -254,6 +254,10 @@ AnimalJurisdiction
     The animal's jurisdiction
 CoordinatorName
     The name of the adoption coordinator
+CoordinatorFirstname / CoordinatorForeNames
+    The first name(s) of the adoption coordinator 
+CoordinatorLastname / CoordinatorSurname
+    The last name of the adoption coordinator 
 CoordinatorHomePhone
     The home phone number of the adoption coordinator
 CoordinatorWorkPhone
@@ -892,10 +896,28 @@ CurrentBoardingCost
 TotalCosts
     The total of CurrentBoardingCost and all the Total Cost fields.
 
+Diary Keys
+----------
+
+You must use a qualifier suffix to access the records (animal only).
+
+DiaryDate
+    The date/time of the diary note
+DiaryCompleted
+    The date the diary note was completed
+DiaryFor
+    Who the diary note is for
+DiarySubject
+    The diary subject
+DiaryNote
+    The diary note text
+DiaryComments
+    Any comments added to the diary note
+
 Diet Keys
 ---------
 
-You must use a qualifier suffix to access these records.
+You must use a qualifier suffix to access these records (animal only).
 
 DietName
     The name of the diet 
@@ -1079,12 +1101,13 @@ MembershipNumber
     The person's membership number
 MembershipExpiryDate 
     The date this person's membership with the shelter expires
-DocumentImgLink
+PersonDocumentImgLink
     An <img> tag containing a link to the person's preferred document image.
     The image will be 200px high. You can also suffix a pixel height in
     increments of 100 upto 500px if you would like the image to be larger, eg:
-    <<DocumentImgLink300>>, <<DocumentImgLink400>>, <<DocumentImgLink500>>
-DocumentImgSrc
+    <Person<DocumentImgLink300>>, <<PersonDocumentImgLink400>>,
+    <<PersonDocumentImgLink500>>
+PersonDocumentImgSrc
     Just the src attribute value for an image link to the preferred document image.
 
 Citation Keys
@@ -1135,9 +1158,11 @@ Licence Keys
 ------------
 
 Licence keys are only available for documents generated for a single licence
-under the licence tab or licencing book. Keys for the person purchasing the
-licence are also present and if the licence is linked to an animal, animal
-keys are also present.
+under the licence tab or licencing book (or for licence reminder emails as
+configured under :menuselection:`Settings --> Options --> Reminder Emails`). 
+
+Keys for the person purchasing the licence are also present and if the licence
+is linked to an animal, animal keys are also present.
 
 .. note:: You can use "Licence" or "License" when accessing these keys - either will work.
 
@@ -1153,6 +1178,10 @@ LicenceExpires
     The date the licence expires
 LicenceComments
     Any comments from the licence record
+LicenceRenewLink
+    A clickable link to "pay and renew this licence". Links to the licence checkout.
+LicenceRenewSrc
+    The link target only for renewing so that you can build your own link
 
 Voucher Keys
 ------------
@@ -1166,6 +1195,8 @@ VoucherTypeName
    The type of voucher
 VoucherCode
    The voucher's unique code
+VoucherVetName
+   The vet or other organisation the voucher can be redeemed with
 VoucherValue
    The amount the voucher can be redeemed for if appropriate
 VoucherIssued
@@ -1186,6 +1217,8 @@ IncidentLog instead of just Log.
 
 IncidentNumber
     The unique incident number
+IncidentCode
+    The incident code
 IncidentDate
     The date of the incident
 IncidentTime

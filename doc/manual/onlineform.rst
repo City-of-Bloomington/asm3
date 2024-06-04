@@ -192,13 +192,28 @@ data, or explicitly attach the form to existing records.
   based on the animalname field in the form itself. If the animal is bonded,
   attaches to the bonded animals too.
 
+* Attach Animal (via animalname, no media): Works the same as the option
+  above, but if form contains images or documents that the submitter has uploaded, 
+  they will not be added to the media tab of the animal.
+
 * Create Animal: Searches for an animal record matching the code field on the 
-  form if present. If a match is found, the form is attached to that animal,
+  form if present, or the animalname if a dropdown of Shelter or Adoptable Animal
+  was used (which has the code present in the name). 
+  If a match is found, the form is attached to that animal,
   otherwise a new animal record is created. While you can use the Species
   and Breed field types with the breed1/breed2/color fields, you can also
   use your own lookup lists containing subsets of these items for users
   to choose from. When creating animals, the animalname and one of dateofbirth
   or age are mandatory.
+
+* Create Animal (non-shelter with owner): Performs a create animal as described
+  above. This version assumes that the fields are present to create a person
+  as well, and links that person to the animal as its owner, setting the non-shelter
+  flag on the new animal.
+
+* Create Animal (with brought in person): Performs a create animal as described
+  above. This version assumes that the fields are present to create a person
+  as well, and links that person to the new animal in the "Brought In By" field.
 
 * Create Person: Searches for a person record matching either the email address
   if present, or the firstname, lastname and address fields on the form. If a
@@ -208,6 +223,13 @@ data, or explicitly attach the form to existing records.
   (these can be all viewed under :menuselection:`Move --> Reservation Book`).
   If the animal was bonded, reservations will be created for the bonded
   animals too.
+
+* Create Person (no merge existing): Similar to create person above, but does
+  no checks to see if the person already exists and always creates a new
+  person. This is useful if the icon is showing to indicate that a matching
+  person has been found, but the matching person indicated is incorrect.
+  This can happen when children apply on behalf of their parents or other
+  scenarios where the contact info may point to the wrong person.
 
 * Create Lost Animal: Runs through the same steps as Person so needs enough
   information to create/find a person as well. “description” and “arealost”

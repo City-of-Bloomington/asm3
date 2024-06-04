@@ -1,5 +1,5 @@
 /*global $, console, performance, jQuery, FileReader, Mousetrap, Path */
-/*global alert, atob, btoa, header, _, escape, unescape, navigator */
+/*global alert, atob, btoa, confirm, header, _, escape, unescape, navigator */
 /*global asm, schema, validate */
 /*global consts: true, common: true, config: true, controller: true, dlgfx: true, format: true, log: true */
 
@@ -189,17 +189,28 @@ const common = {
      * if the value is not set or local storage not available.
      */
     local_get: function(name) {
-        if (typeof(Storage) === "undefined") { return ""; }
-        if (localStorage[name]) { return localStorage[name]; }
-        return "";
+        try {
+            if (typeof(Storage) === "undefined") { return ""; }
+            if (localStorage[name]) { return localStorage[name]; }
+            return "";
+        }
+        catch (ex) {
+            log.warn("local_get: failed accessing localStorage: " + ex);
+            return "";
+        }
     },
 
     /**
      * Sets a value in HTML5 local storage. Value must be a string.
      */
     local_set: function(name, value) {
-        if (typeof(Storage) !== "undefined") {
-            localStorage[name] = value;
+        try {
+            if (typeof(Storage) !== "undefined") {
+                localStorage[name] = value;
+            }
+        }
+        catch (ex) {
+            log.warn("local_set: failed accessing localStorage: " + ex);
         }
     },
 
@@ -211,7 +222,9 @@ const common = {
             try {
                 localStorage.removeItem(name); 
             }
-            catch (ex) {}
+            catch (ex) {
+                log.warn("local_delete: failed accessing localStorage: " + ex);
+            }
         }
     },
 
@@ -584,7 +597,8 @@ const common = {
                 "&msg=" + encodeURIComponent(msg) + 
                 "&stack=" + encodeURIComponent(String(e.stack))
             );
-            alert(msg + "\n" + e.stack);
+            // If user clicks OK, reloads /main to apply any database updates, reload config.js, etc.
+            if (confirm(msg + "\n" + e.stack)) { window.location = "main"; }
         };
 
         // do we already have one running? If so, try to unload it first

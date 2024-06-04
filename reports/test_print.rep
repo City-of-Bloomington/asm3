@@ -2,14 +2,14 @@ Test Print
 ###
 Auditing
 ###
-3309/Any rev02
+3309/Any rev04
 ###
 Tests for a selected shelter animal.
 ###
 en
 ###
 SELECT
-a.ShelterCode, a.AnimalName, t.AnimalType, il.LocationName,
+a.ShelterCode, a.ID AS AID, a.AnimalName, t.AnimalType, il.LocationName,
 tt.TestName, av.DateRequired,
 av.DateOfTest, tr.ResultName, av.Comments
 FROM animal a
@@ -22,25 +22,30 @@ WHERE a.ID = $ASK ANIMAL$
 ORDER BY av.DateOfTest
 ###
 $$HEADER
-<h2>Tests for $SHELTERCODE - $ANIMALNAME</h2>
-<table border=1><tr>
-<td><b>Test Type</b></td>
-<td><b>Required</b></td>
-<td><b>Given</b></td>
-<td><b>Result</b></td>
-<td><b>Comments</b></td>
+<h2>Tests for $SHELTERCODE - <a target="_blank" href="animal?id=$AID">$ANIMALNAME</a></h2>
+<table border=1>
+<thead>
+<tr>
+<th><b>Test Type</b></th>
+<th><b>Required</b></th>
+<th><b>Given</b></th>
+<th><b>Result</b></th>
+<th><b>Comments</b></th>
 </tr>
+</thead>
+<tbody>
 HEADER$$
 
 $$BODY<tr>
 <td>$TESTNAME</td>
 <td>$DATEREQUIRED</td>
-<td>$DATEOFVACCINATION</td>
+<td>$DATEOFTEST</td>
 <td>$RESULTNAME</td>
 <td>$COMMENTS</td>
 </tr>
 BODY$$
 
 $$FOOTER
+</tbody>
 </table>
 FOOTER$$

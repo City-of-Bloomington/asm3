@@ -2,7 +2,7 @@ Deceased animals between two dates (include off-shelter)
 ###
 Auditing
 ###
-Any rev01
+Any rev03
 ###
 All animals who died between two dates with details
 ###
@@ -10,6 +10,7 @@ en
 ###
 SELECT a.ShelterCode, 
 a.AnimalName, 
+a.ID AS AID,
 a.MostRecentEntryDate,
 a.DeceasedDate,
 a.IdentichipNumber,
@@ -34,25 +35,28 @@ ORDER BY a.DeceasedDate
 ###
 $$HEADER
 <table border=1>
+<thead>
 <tr>
-<td><b>Date of Death</b></td>
-<td><b>Code</b></td>
-<td><b>Name</b></td>
-<td><b>Microchip</b></td>
-<td><b>Type</b></td>
-<td><b>Age</b></td>
-<td><b>Intake Date</b></td>
-<td><b>Days On Shelter</b></td>
-<td><b>Reason</b></td>
-<td><b>Cause of Death</b></td>
+<th><b>Date of Death</b></th>
+<th><b>Code</b></th>
+<th><b>Name</b></th>
+<th><b>Microchip</b></th>
+<th><b>Type</b></th>
+<th><b>Age</b></th>
+<th><b>Intake Date</b></th>
+<th><b>Days On Shelter</b></th>
+<th><b>Reason</b></th>
+<th><b>Cause of Death</b></th>
 </tr>
+</thead>
+<tbody>
 HEADER$$
 
 $$BODY
 <tr>
 <td>$deceaseddate</td>
 <td>$sheltercode</td>
-<td>$animalname</td>
+<td><a target="_blank" href="animal?id=$AID">$animalname</a></td>
 <td>$identichipnumber</td>
 <td>$animaltype ($sex $breedname $speciesname)</td>
 <td>$animalage</td>
@@ -64,6 +68,7 @@ $$BODY
 BODY$$
 
 $$FOOTER
+</tbody>
 </table>
 <p>Total deaths: {COUNT.ShelterCode}</p>
 FOOTER$$
@@ -72,14 +77,14 @@ Deceased animals between two dates with pictures (include off-shelter)
 ###
 Auditing
 ###
-Any rev01
+Any rev03
 ###
 All animals who died between two dates with details and pictures
 ###
 en
 ###
 SELECT a.ID, a.ShelterCode, 
-a.AnimalName, 
+a.AnimalName, a.ID AS AID, 
 a.MostRecentEntryDate,
 a.DeceasedDate,
 a.IdentichipNumber,
@@ -104,26 +109,29 @@ ORDER BY a.DeceasedDate
 ###
 $$HEADER
 <table border=1>
+<thead>
 <tr>
-<td><b>Date of Death</b></td>
-<td><b>Code</b></td>
-<td><b>Name</b></td>
-<td><b>Microchip</b></td>
-<td><b>Type</b></td>
-<td><b>Age</b></td>
-<td><b>Intake Date</b></td>
-<td><b>Days On Shelter</b></td>
-<td><b>Reason</b></td>
-<td><b>Cause of Death</b></td>
-<td></td>
+<th><b>Date of Death</b></th>
+<th><b>Code</b></th>
+<th><b>Name</b></th>
+<th><b>Microchip</b></th>
+<th><b>Type</b></th>
+<th><b>Age</b></th>
+<th><b>Intake Date</b></th>
+<th><b>Days On Shelter</b></th>
+<th><b>Reason</b></th>
+<th><b>Cause of Death</b></th>
+<th></th>
 </tr>
+</thead>
+<tbody>
 HEADER$$
 
 $$BODY
 <tr>
 <td>$deceaseddate</td>
 <td>$sheltercode</td>
-<td>$animalname</td>
+<td><a target="_blank" href="animal?id=$AID">$animalname</a></td>
 <td>$identichipnumber</td>
 <td>$animaltype ($sex $breedname $speciesname)</td>
 <td>$animalage</td>
@@ -136,6 +144,7 @@ $$BODY
 BODY$$
 
 $$FOOTER
+</tbody>
 </table>
 <p>Total deaths: {COUNT.ShelterCode}</p>
 FOOTER$$

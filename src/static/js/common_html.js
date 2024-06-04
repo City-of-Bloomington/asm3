@@ -151,9 +151,8 @@ const html = {
      * Renders a bare animal link thumbnail (just the thumbnail surrounded by a link to the record)
      */
     animal_link_thumb_bare: function(a) {
-        var animalid = a.ANIMALID || a.ID,
-            classes = html.animal_link_thumb_classes(a); 
-        return '<a href="animal?id=' + animalid + '"><img src=' + html.thumbnail_src(a, "animalthumb") + ' class="' + classes + '" /></a>';
+        var animalid = a.ANIMALID || a.ID;
+        return '<a href="animal?id=' + animalid + '">' + html.animal_thumb(a, {}) + '</a>';
     },
 
     /**
@@ -162,6 +161,16 @@ const html = {
     animal_link_thumb_classes: function(a) {
         var sxc = (a.SEX == 0 ? "asm-thumbnail-female" : (a.SEX == 1 ? "asm-thumbnail-male" : ""));
         return "asm-thumbnail thumbnailshadow " + (config.bool("ShowSexBorder") ? sxc : "");
+    },
+
+    /**
+     * Renders the animal thumbnail.
+     * o: options object, style to set a style attribute for the img.
+     */
+    animal_thumb: function(a, o) {
+        let style = "";
+        if (o.style) { style = 'style="' + o.style + '"'; }
+        return '<img ' + style + ' src=' + html.thumbnail_src(a, "animalthumb") + ' class="' + html.animal_link_thumb_classes(a) + '" />';
     },
 
     /**
@@ -678,6 +687,7 @@ const html = {
             '<option value="agegrouplitter">' + _("Age Group and Litter") + '</option>',
             '<option value="color">' + _("Color") + '</option>',
             '<option value="entrycategory">' + _("Entry Category") + '</option>',
+            '<option value="entrytype">' + _("Entry Type") + '</option>',
             '<option value="flags">' + _("Flags") + '</option>',
             '<option value="fosterer">' + _("Fosterer") + '</option>',
             '<option value="fostereractive">' + _("Fosterer (Active Only)") + '</option>',
@@ -958,6 +968,14 @@ const html = {
             h.push("<option " + retired + " value=\"" + v.ID + "\">" + v.BREEDNAME + "</option>\n");
         });
         return h.join("\n");
+    },
+
+    /**
+     * Swap line breaks \n for <br> tags
+     */
+    lf_to_br: function(s) {
+        if (!s) { return ""; }
+        return String(s).replace(/\n/g, "<br />");
     },
 
     data_url_to_array_buffer: function(url) {

@@ -11,8 +11,8 @@ $(function() {
                 rows: controller.rows,
                 idcolumn: "COLLATIONID",
                 edit: async function(row) {
-                    if (asm.mobileapp) {
-                        // Open in a new page on the mobile app rather than a dialog
+                    if (common.browser_is.mobile) {
+                        // Open in a new page on mobile rather than a dialog
                         common.route("onlineform_incoming_print?ids=" + row.COLLATIONID, true);
                         return;
                     }
@@ -110,12 +110,16 @@ $(function() {
                         + '" href="#">' + html.icon("animal-find") + ' ' + _("Animal") + '</a></li>',
                     '<li id="button-attachanimalbyname" class="asm-menu-item"><a '
                         + '" href="#">' + html.icon("animal-find") + ' ' + _("Animal (via animalname field)") + '</a></li>',
+                    '<li id="button-attachanimalnomedia" class="asm-menu-item"><a '
+                        + '" href="#">' + html.icon("animal-find") + ' ' + _("Animal (via animalname field, no media)") + '</a></li>',
                 '</ul>',
                 '</div>',
                 '<div id="button-create-body" class="asm-menu-body">',
                 '<ul class="asm-menu-list">',
                     '<li id="button-animal" class="asm-menu-item"><a '
                         + '" href="#">' + html.icon("animal-add") + ' ' + _("Animal") + '</a></li>',
+                    '<li id="button-animalnonshelter" class="asm-menu-item"><a '
+                        + '" href="#">' + html.icon("animal-add") + ' ' + _("Animal (non-shelter with owner)") + '</a></li>',
                     '<li id="button-animalbroughtin" class="asm-menu-item"><a '
                         + '" href="#">' + html.icon("animal-add") + ' ' + _("Animal (with brought in person)") + '</a></li>',
                     '<li id="button-person" class="asm-menu-item"><a '
@@ -142,39 +146,59 @@ $(function() {
         bind_buttonmenus: function() {
             $("#button-attachperson").click(function() {
                 $("#dialog-attach-person").dialog("open");
+                return false;
             });
             $("#button-attachanimal").click(function() {
                 $("#dialog-attach-animal").dialog("open");
+                return false;
             });
             $("#button-attachanimalbyname").click(function() {
                 onlineform_incoming.create_record("attachanimalbyname", "animal");
+                return false;
+            });
+            $("#button-attachanimalnomedia").click(function() {
+                onlineform_incoming.create_record("attachanimalnomedia", "animal");
+                return false;
             });
             $("#button-animal").click(function() {
                 onlineform_incoming.create_record("animal", "animal");
+                return false;
             });
             $("#button-animalbroughtin").click(function() {
                 onlineform_incoming.create_record("animalbroughtin", "animal");
+                return false;
+            });
+            $("#button-animalnonshelter").click(function() {
+                onlineform_incoming.create_record("animalnonshelter", "animal");
+                return false;
             });
             $("#button-person").click(function() {
                 onlineform_incoming.create_record("person", "person");
+                return false;
             });
             $("#button-person-nm").click(function() {
                 onlineform_incoming.create_record("personnomerge", "person");
+                return false;
             });
             $("#button-lostanimal").click(function() {
                 onlineform_incoming.create_record("lostanimal", "lostanimal");
+                return false;
             });
             $("#button-foundanimal").click(function() {
                 onlineform_incoming.create_record("foundanimal", "foundanimal");
+                return false;
             });
             $("#button-incident").click(function() {
                 onlineform_incoming.create_record("incident", "incident");
+                return false;
             });
             $("#button-transport").click(function() {
                 onlineform_incoming.create_record("transport", "animal_transport");
+                return false;
             });
             $("#button-waitinglist").click(function() {
                 onlineform_incoming.create_record("waitinglist", "waitinglist");
+                return false;
             });
         },
 
@@ -313,9 +337,10 @@ $(function() {
          * url:  The url to link to the target created record
          */
         create_record: async function(mode, target) {
+            $("#button-attach").asmmenu("hide_all");
             header.hide_error();
             header.show_loading(_("Creating..."));
-            let table = onlineform_incoming.table, ids = tableform.table_ids(table);
+            let table = onlineform_incoming.table, buttons = onlineform_incoming.buttons, ids = tableform.table_ids(table);
             try {
                 let result = await common.ajax_post("onlineform_incoming", "mode=" + mode + "&ids=" + ids);
                 let selrows = tableform.table_selected_rows(table);
@@ -334,6 +359,7 @@ $(function() {
                     });
                 });
                 tableform.table_update(table);
+                tableform.table_update_buttons(table, buttons);
             }
             finally {
                 header.hide_loading();

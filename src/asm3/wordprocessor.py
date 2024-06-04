@@ -20,7 +20,9 @@ import asm3.template
 import asm3.users
 import asm3.utils
 import asm3.waitinglist
+
 from asm3.i18n import _, date_diff_days, format_currency, format_currency_no_symbol, format_diff, format_diff_single, format_time, now, python2display, python2displaytime, yes_no
+from asm3.sitedefs import SERVICE_URL
 from asm3.typehints import bytes_or_str, Database, Dict, List, ResultRow, Results, Tags, Tuple
 
 import zipfile
@@ -263,13 +265,13 @@ def animal_tags_publisher(dbo: Database, a: ResultRow, includeAdditional=True) -
     very little apart from additional fields are required and we can save
     database calls for each asm3.animal.
     """
-    return animal_tags(dbo, a, includeAdditional=includeAdditional, includeCosts=False, includeDiet=True, \
-        includeDonations=False, includeFutureOwner=False, includeIsVaccinated=True, includeLitterMates=False, \
+    return animal_tags(dbo, a, includeAdditional=includeAdditional, includeCosts=False, includeDiary=False, 
+        includeDiet=True, includeDonations=False, includeFutureOwner=False, includeIsVaccinated=True, includeLitterMates=False, 
         includeLogs=False, includeMedical=False, includeTransport=False)
 
-def animal_tags(dbo: Database, a: ResultRow, includeAdditional=True, includeCosts=True, includeDiet=True, includeDonations=True, \
-        includeFutureOwner=True, includeIsVaccinated=True, includeLitterMates=True, includeLogs=True, \
-        includeLicence=True, includeMedical=True, includeTransport=True) -> Tags:
+def animal_tags(dbo: Database, a: ResultRow, includeAdditional=True, includeCosts=True, includeDiary=True, 
+        includeDiet=True, includeDonations=True, includeFutureOwner=True, includeIsVaccinated=True, 
+        includeLitterMates=True, includeLogs=True, includeLicence=True, includeMedical=True, includeTransport=True) -> Tags:
     """
     Generates a list of tags from an animal result (the deep type from calling asm3.animal.get_animal)
     """
@@ -454,6 +456,10 @@ def animal_tags(dbo: Database, a: ResultRow, includeAdditional=True, includeCost
         "NEUTERINGVETLICENSE"   : a["NEUTERINGVETLICENCENUMBER"],
         "NEUTERINGVETLICENCE"   : a["NEUTERINGVETLICENCENUMBER"],
         "COORDINATORNAME"       : a["ADOPTIONCOORDINATORNAME"],
+        "COORDINATORFIRSTNAME"  : a["ADOPTIONCOORDINATORFORENAMES"],
+        "COORDINATORFORENAMES"  : a["ADOPTIONCOORDINATORFORENAMES"],
+        "COORDINATORLASTNAME"   : a["ADOPTIONCOORDINATORSURNAME"],
+        "COORDINATORSURNAME"    : a["ADOPTIONCOORDINATORSURNAME"],
         "COORDINATORHOMEPHONE"  : a["ADOPTIONCOORDINATORHOMETELEPHONE"],
         "COORDINATORWORKPHONE"  : a["ADOPTIONCOORDINATORWORKTELEPHONE"],
         "COORDINATORMOBILEPHONE" : a["ADOPTIONCOORDINATORMOBILETELEPHONE"],
@@ -592,8 +598,8 @@ def animal_tags(dbo: Database, a: ResultRow, includeAdditional=True, includeCost
         "DOCUMENTIMGLINK300"    : "<img height=\"300\" src=\"" + asm3.html.doc_img_src(dbo, a) + "\" >",
         "DOCUMENTIMGLINK400"    : "<img height=\"400\" src=\"" + asm3.html.doc_img_src(dbo, a) + "\" >",
         "DOCUMENTIMGLINK500"    : "<img height=\"500\" src=\"" + asm3.html.doc_img_src(dbo, a) + "\" >",
-        "DOCUMENTIMGTHUMBSRC"   : asm3.html.thumbnail_img_src(dbo, a, "animalthumb"),
-        "DOCUMENTIMGTHUMBLINK"  : "<img src=\"" + asm3.html.thumbnail_img_src(dbo, a, "animalthumb") + "\" />",
+        "DOCUMENTIMGTHUMBSRC"   : asm3.html.doc_img_src(dbo, a),
+        "DOCUMENTIMGTHUMBLINK"  : "<img height=\"100\" src=\"" + asm3.html.doc_img_src(dbo, a) + "\" />",
         "DOCUMENTQRLINK"        : "<img src=\"%s\" />" % asm3.html.qr_animal_img_record_src(a.ID),
         "DOCUMENTQRLINK200"     : "<img src=\"%s\" />" % asm3.html.qr_animal_img_record_src(a.ID, "200x200"),
         "DOCUMENTQRLINK150"     : "<img src=\"%s\" />" % asm3.html.qr_animal_img_record_src(a.ID, "150x150"),
@@ -812,6 +818,18 @@ def animal_tags(dbo: Database, a: ResultRow, includeAdditional=True, includeCost
             ( "COMMENTS", _("Comments", l)) 
         ))
 
+    # Diary
+    if includeDiary:
+        d = {
+            "DIARYDATE":                "d:DIARYDATETIME",
+            "DIARYCOMPLETED":           "d:DATECOMPLETED",
+            "DIARYFOR":                 "DIARYFORNAME",
+            "DIARYSUBJECT":             "SUBJECT",
+            "DIARYNOTE":                "NOTE",
+            "DIARYCOMMENTS":            "COMMENTS"
+        }
+        tags.update(table_tags(dbo, d, asm3.diary.get_diaries(dbo, asm3.diary.ANIMAL, a["ID"]), "DIARYFORNAME", "DIARYDATETIME", "DATECOMPLETED"))
+
     # Diet
     if includeDiet:
         d = {
@@ -987,6 +1005,7 @@ def animalcontrol_tags(dbo: Database, ac: ResultRow) -> Tags:
     l = dbo.locale
     tags = {
         "INCIDENTNUMBER":       asm3.utils.padleft(ac["ACID"], 6),
+        "INCIDENTCODE":         ac["INCIDENTCODE"],
         "INCIDENTDATE":         python2display(l, ac["INCIDENTDATETIME"]),
         "INCIDENTTIME":         format_time(ac["INCIDENTDATETIME"], "%H:%M"),
         "INCIDENTTYPENAME":     asm3.utils.nulltostr(ac["INCIDENTNAME"]),
@@ -1301,6 +1320,7 @@ def licence_tags(dbo: Database, li: ResultRow) -> Tags:
     (from anything using asm3.financial.get_licence_query)
     """
     l = dbo.locale
+    renew_url = f"{SERVICE_URL}?account={dbo.database}&method=checkout_licence&token={li.TOKEN}"
     tags = {
         "LICENCETYPENAME":      li["LICENCETYPENAME"],
         "LICENCENUMBER":        li["LICENCENUMBER"],
@@ -1308,12 +1328,16 @@ def licence_tags(dbo: Database, li: ResultRow) -> Tags:
         "LICENCEISSUED":        python2display(l, li["ISSUEDATE"]),
         "LICENCEEXPIRES":       python2display(l, li["EXPIRYDATE"]),
         "LICENCECOMMENTS":      li["COMMENTS"],
+        "LICENCERENEWLINK":     '<a href="%s">%s</a>' % ( renew_url, _("Pay and renew license") ),
+        "LICENCERENEWSRC":      renew_url,
         "LICENSETYPENAME":      li["LICENCETYPENAME"],
         "LICENSENUMBER":        li["LICENCENUMBER"],
         "LICENSEFEE":           format_currency_no_symbol(l, li["LICENCEFEE"]),
         "LICENSEISSUED":        python2display(l, li["ISSUEDATE"]),
         "LICENSEEXPIRES":       python2display(l, li["EXPIRYDATE"]),
-        "LICENSECOMMENTS":      li["COMMENTS"]
+        "LICENSECOMMENTS":      li["COMMENTS"],
+        "LICENSERENEWLINK":     '<a href="%s">%s</a>' % ( renew_url, _("Pay and renew license") ),
+        "LICENSERENEWSRC":      renew_url
     }
     return tags
 
@@ -1536,12 +1560,12 @@ def person_tags(dbo: Database, p: ResultRow, includeImg=False, includeDonations=
     }
 
     if includeImg:
-        tags["DOCUMENTIMGSRC"] = asm3.html.doc_img_src(dbo, p)
-        tags["DOCUMENTIMGLINK"] = "<img height=\"200\" src=\"" + asm3.html.doc_img_src(dbo, p) + "\" >"
-        tags["DOCUMENTIMGLINK200"] = "<img height=\"200\" src=\"" + asm3.html.doc_img_src(dbo, p) + "\" >"
-        tags["DOCUMENTIMGLINK300"] = "<img height=\"300\" src=\"" + asm3.html.doc_img_src(dbo, p) + "\" >"
-        tags["DOCUMENTIMGLINK400"] = "<img height=\"400\" src=\"" + asm3.html.doc_img_src(dbo, p) + "\" >"
-        tags["DOCUMENTIMGLINK500"] = "<img height=\"500\" src=\"" + asm3.html.doc_img_src(dbo, p) + "\" >"
+        tags["PERSONDOCUMENTIMGSRC"] = asm3.html.doc_img_src(dbo, p)
+        tags["PERSONDOCUMENTIMGLINK"] = "<img height=\"200\" src=\"" + asm3.html.doc_img_src(dbo, p) + "\" >"
+        tags["PERSONDOCUMENTIMGLINK200"] = "<img height=\"200\" src=\"" + asm3.html.doc_img_src(dbo, p) + "\" >"
+        tags["PERSONDOCUMENTIMGLINK300"] = "<img height=\"300\" src=\"" + asm3.html.doc_img_src(dbo, p) + "\" >"
+        tags["PERSONDOCUMENTIMGLINK400"] = "<img height=\"400\" src=\"" + asm3.html.doc_img_src(dbo, p) + "\" >"
+        tags["PERSONDOCUMENTIMGLINK500"] = "<img height=\"500\" src=\"" + asm3.html.doc_img_src(dbo, p) + "\" >"
 
     # Donations
     if includeDonations:
@@ -1579,6 +1603,7 @@ def person_tags(dbo: Database, p: ResultRow, includeImg=False, includeDonations=
         d = {
             "VOUCHERANIMALNAME":    "ANIMALNAME",
             "VOUCHERSHELTERCODE":   "SHELTERCODE",
+            "VOUCHERVETNAME":       "VETNAME",
             "VOUCHERTYPENAME":      "VOUCHERNAME",
             "VOUCHERCODE":          "VOUCHERCODE",
             "VOUCHERVALUE":         "c:VALUE",
@@ -1715,6 +1740,7 @@ def voucher_tags(dbo: Database, v: ResultRow) -> Tags:
     tags = {
         "VOUCHERANIMALNAME":    v["ANIMALNAME"],
         "VOUCHERSHELTERCODE":   v["SHELTERCODE"],
+        "VOUCHERVETNAME":       v["VETNAME"],
         "VOUCHERTYPENAME":      v["VOUCHERNAME"],
         "VOUCHERCODE":          v["VOUCHERCODE"],
         "VOUCHERVALUE":         format_currency_no_symbol(l, v["VALUE"]),
@@ -1939,14 +1965,22 @@ def table_tags(dbo: Database, d: Tags, rows: Results, typefield: str = "", recen
                 t = t.upper().replace(" ", "").replace("/", "")
                 for k, v in d.items():
                     tags[k + "RECENT" + t] = table_get_value(l, r, v)
+
+    # Include blank indexed tags up to 20
+    for x in range(len(rows)+1, 20):
+        for k, v in d.items():
+            tags[k + str(x)] = ""
+            tags[k + "LAST" + str(x)] = ""
+
     return tags
 
 def substitute_tags(searchin: str, tags: Tags, escape_html: bool = True, 
-                    opener: str = "&lt;&lt;", closer: str = "&gt;&gt;", crToBr: bool = True) -> str:
+                    opener: str = "&lt;&lt;", closer: str = "&gt;&gt;", 
+                    cr_to_br: bool = True, remove_unmatched = True) -> str:
     """
     Just to make code more readable as other areas call wordprocessor to build tags and do substitutions
     """
-    return asm3.utils.substitute_tags(searchin, tags, escape_html, opener, closer, crToBr)
+    return asm3.utils.substitute_tags(searchin, tags, escape_html, opener, closer, cr_to_br, remove_unmatched)
 
 def substitute_template(dbo: Database, templateid: int, tags: Tags, imdata: bytes = None) -> bytes_or_str:
     """
@@ -1968,7 +2002,7 @@ def substitute_template(dbo: Database, templateid: int, tags: Tags, imdata: byte
             zf = zipfile.ZipFile(odt, "r")
             # Load the content.xml file and substitute the tags
             content = asm3.utils.bytes2str(zf.open("content.xml").read())
-            content = substitute_tags(content, tags, crToBr=False)
+            content = substitute_tags(content, tags, cr_to_br=False, remove_unmatched=False)
             # Write the replacement file
             zo = asm3.utils.bytesio()
             zfo = zipfile.ZipFile(zo, "w", zipfile.ZIP_DEFLATED)
@@ -1991,6 +2025,7 @@ def extract_mail_tokens(s: str) -> Dict[str, str]:
     """
     Extracts tokens for mail from document content s.
     Mail tokens are {{FROM x}}, {{SUBJECT x}}
+    {{TO x}} can also be used, but is ignored and stripped by mailmerges
     This process should be run on the output after generating a document so that all
     wordkeys in the mail tokens have been substituted.
     Returns a dictionary containing any found tokens and the body with the tokens removed.
@@ -1998,7 +2033,7 @@ def extract_mail_tokens(s: str) -> Dict[str, str]:
     if s is None: s = ""
     if asm3.utils.is_bytes(s): s = asm3.utils.bytes2str(s)
     results = asm3.utils.regex_multi(r"\{\{(.+?) (.+?)\}\}",  s)
-    d = { "FROM": None, "CC": None, "BCC": None, "SUBJECT": None, "BODY": None }
+    d = { "TO": None, "FROM": None, "CC": None, "BCC": None, "SUBJECT": None, "BODY": None }
     for k, v in results:
         d[k] = v
     s = asm3.utils.regex_delete(r"\{\{(.+?)\}\}", s)

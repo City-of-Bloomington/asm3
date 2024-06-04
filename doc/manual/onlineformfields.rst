@@ -34,6 +34,10 @@ mobiletelephone / celltelephone / mobiletelephone2 / celltelephone2
 emailaddress / emailaddress2
     The person's email address
 dateofbirth / dateofbirth2
+    The person or animal's date of birth
+dateofbirthanimal
+    The animal's date of birth
+dateofbirthperson /dateofbirthperson2
     The person's date of birth
 idnumber / idnumber2
     The person's ID number (passport, driving license, national ID card, etc)
@@ -43,8 +47,12 @@ comments
     The comments field for the animal (for historical reasons, comments populates the animal's description field), person, lost, found or waiting list animal
 description
     The description for the lost, found or waiting list animal
+healthproblems
+    The health problems field for the animal
 entryreason
     The entry category for an animal. ASM will try and guess this from the entry reasons lookup values in the database.
+entrytype
+    The entry type for an animal. ASM will try and guess this from the fixed list of entry types, Surrender, Stray, Transfer In, etc.
 reason
     The reason the person is putting their animal on the waiting list (or reason for entry notes if creating an animal)
 type
@@ -53,6 +61,10 @@ species
     The species of the animal. ASM will try and guess based on the text which one is meant. Use a lookup field to limit the choices to known items (or use the Species field type)
 breed1 / breed2
     The breed of the animal. ASM will try and guess one of it's lookup values (or use the Breed field type to limit to them). If this form has no species field and you are creating an animal from it, the form engine will use the species linked to breed1.
+breed
+    For compatibility, breed can be used interchangeably with breed1
+age
+    The age of the animal in years. Fractional years can be used, eg: 1.5
 agegroup
     The age group of the animal. Again, ASM will try and guess one if it's internal values.
 color / colour

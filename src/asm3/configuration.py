@@ -31,6 +31,7 @@ DEFAULTS = {
     "AddAnimalsShowCoordinator": "No",
     "AddAnimalsShowDateBroughtIn": "Yes",
     "AddAnimalsShowEntryCategory": "Yes",
+    "AddAnimalsShowEntryType": "Yes",
     "AddAnimalsShowFosterer": "Yes",
     "AddAnimalsShowHold": "Yes",
     "AddAnimalsShowLocation": "Yes",
@@ -75,12 +76,14 @@ DEFAULTS = {
     "AutoRemovePeopleCRYears": "0",
     "AFDefaultBreed": "221",
     "AFDefaultCoatType": "0",
+    "AFDefaultClinicType": "1",
     "AFDefaultColour": "1",
     "AFDefaultDeathReason": "1",
     "AFDefaultDiaryPerson": "",
     "AFDefaultDonationType": "1",
     "AFDefaultPaymentMethod": "1",
     "AFDefaultEntryReason": "4",
+    "AFDefaultEntryType": "1",
     "AFDefaultLocation": "1",
     "AFDefaultLogFilter": "-1",
     "AFDefaultLogType": "1",
@@ -126,6 +129,7 @@ DEFAULTS = {
     "CreateBoardingCostOnAdoption": "Yes",
     "CreateCostTrx": "No",
     "CreateDonationTrx": "Yes",
+    "CrossbreedSpecies": "1",
     "CodingFormat": "TYYYYNNN",
     "CurrencyCode": "USD",
     "ShortCodingFormat": "NNT",
@@ -167,6 +171,7 @@ DEFAULTS = {
     "EmailAdopterFollowup": "No",
     "EmailAdopterFollowupDays": "14",
     "EmailAdopterFollowupTemplate": "0",
+    "EmailAdopterFollowupSpecies": "1,2",
     "EmailClinicReminder": "No",
     "EmailClinicReminderDays": "2",
     "EmailClinicReminderTemplate": "0",
@@ -203,8 +208,6 @@ DEFAULTS = {
     "EmblemTrialAdoption": "Yes",
     "EmblemUnneutered": "Yes",
     "EventSearchColumns": "StartDateTime,EndDateTime,EventName,EventOwnerName,EventAddress,EventTown",
-    "EventExcludeAnimalsWithFlags": "",
-    "EventExcludeAnimalsInLocations": "",
     "FancyTooltips": "No",
     "FirstDayOfWeek": "1",
     "FlagChangeLog": "Yes",
@@ -230,6 +233,7 @@ DEFAULTS = {
     "HideLookingFor": "No",
     "HoldChangeLog": "Yes",
     "HoldChangeLogType": "3",
+    "IncidentCodingFormat": "YYMM-XXX",
     "IncidentPermissions": "No",
     "IncidentSearchColumns": "IncidentNumber,IncidentType,IncidentDateTime,"
         "DispatchAddress,DispatchTown,DispatchPostcode,JurisdictionName,"
@@ -294,12 +298,18 @@ DEFAULTS = {
         "MembershipNumber,AdditionalFlags,OwnerAddress," \
         "OwnerTown,OwnerCounty,OwnerPostcode,HomeTelephone,WorkTelephone," \
         "MobileTelephone,EmailAddress",
+    "PetFinderSendStrays": "No",
+    "PetFinderSendHolds": "No",
+    "PetFinderSendAdopted": "No",
+    "PetFinderSendAdoptedPhoto": "No",
+    "PetLinkRegisterAll": "No",
     "PetsLocatedIncludeShelter": "No",
     "PetsLocatedAnimalFlag": "",
     "PicturesInBooks": "Yes",
     "PicturesInBooksClinic": "No",
     "PDFInline": "Yes",
     "PDFZoom": "100",
+    "PublishAsCrossbreed": "243,252,261,442",
     "PublisherUseComments": "Yes",
     "PublisherPresets": "includefosters excludeunder=12",
     "PublisherSub24Frequency": "0",
@@ -345,6 +355,7 @@ DEFAULTS = {
     "ShowWeightUnitsInLog": "Yes",
     "SMTPOverride": "No",
     "SMTPPort": "25",
+    "SMTPReplyAsFrom": "No",
     "SoftReleases": "No",
     "SoftReleaseOnShelter": "No",
     "StickyTableHeaders": "Yes",
@@ -373,6 +384,7 @@ DEFAULTS = {
         "HomeTelephone,EmailAddress,DatePutOnList,TimeOnList," \
         "DateRemovedFromList,Urgency,SpeciesID,Size,AnimalDescription",
     "WaitingListDefaultUrgency": "3",
+    "WaitingListDefaultRemovalWeeks": "0",
     "WaitingListUrgencyUpdatePeriod": "14",
     "WaitingListUseMultipleHighlights": "No",
     "WarnACTypeChange": "Yes",
@@ -419,6 +431,17 @@ def cint(dbo, key: str, default: int = 0) -> int:
         return int(v)
     except:
         return int(0)
+
+def cintlist(dbo, key: str, default: str = "") -> List[int]:
+    s = cstring(dbo, key, default)
+    l = []
+    for v in s.split(","):
+        if v != "": 
+            try:
+                l.append(int(v))
+            except:
+                pass
+    return l
 
 def cfloat(dbo, key: str, default: float = 0.0) -> float:
     defstring = str(default)
@@ -862,6 +885,9 @@ def default_donation_type(dbo: Database) -> int:
 def default_entry_reason(dbo: Database) -> int:
     return cint(dbo, "AFDefaultEntryReason", 4)
 
+def default_entry_type(dbo: Database) -> int:
+    return cint(dbo, "AFDefaultEntryType", 1)
+
 def default_incident(dbo: Database) -> int:
     return cint(dbo, "DefaultIncidentType", 1)
 
@@ -918,6 +944,8 @@ def donation_account_mappings(dbo: Database) -> Dict[str, str]:
     cm = cstring(dbo, "DonationAccountMappings")
     sm = cm.split(",")
     for x in sm:
+        if x.find("-1") != -1:
+            continue # if name or value is -1, then the mapping is not valid
         if x.find("=") != -1:
             bt = x.split("=")
             donationtypeid = bt[0]
@@ -945,6 +973,9 @@ def email_adopter_followup(dbo: Database) -> bool:
 
 def email_adopter_followup_days(dbo: Database) -> int:
     return cint(dbo, "EmailAdopterFollowupDays", DEFAULTS["EmailAdopterFollowupDays"])
+
+def email_adopter_followup_species(dbo: Database) -> str:
+    return cstring(dbo, "EmailAdopterFollowupSpecies", DEFAULTS["EmailAdopterFollowupSpecies"])
 
 def email_adopter_followup_template(dbo: Database) -> int:
     return cint(dbo, "EmailAdopterFollowupTemplate", DEFAULTS["EmailAdopterFollowupTemplate"])
@@ -1087,11 +1118,17 @@ def include_incomplete_medical_doc(dbo: Database) -> bool:
 def include_off_shelter_medical(dbo: Database) -> bool:
     return cboolean(dbo, "IncludeOffShelterMedical", DEFAULTS["IncludeOffShelterMedical"] == "Yes")
 
+def incident_coding_format(dbo: Database) -> str:
+    return cstring(dbo, "IncidentCodingFormat", DEFAULTS["IncidentCodingFormat"])
+
 def js_injection(dbo: Database) -> str:
     return cstring(dbo, "JSInjection")
 
 def js_window_print(dbo: Database) -> bool:
     return cboolean(dbo, "JSWindowPrint", DEFAULTS["JSWindowPrint"] == "Yes")
+
+def licence_checkout_feeid(dbo: Database) -> int:
+    return cint(dbo, "LicenceCheckoutFeeID")
 
 def locale(dbo: Database) -> str:
     return cstring(dbo, "Locale", LOCALE)
@@ -1299,12 +1336,6 @@ def pdf_zoom(dbo: Database) -> int:
 def person_search_columns(dbo: Database) -> str:
     return cstring(dbo, "OwnerSearchColumns", DEFAULTS["OwnerSearchColumns"])
 
-def event_excludeanimalswithflags(dbo: Database) -> str:
-    return cstring(dbo, "EventExcludeAnimalsWithFlags", DEFAULTS["EventExcludeAnimalsWithFlags"])
-
-def event_excludeanimalswithlocations(dbo: Database) -> str:
-    return cstring(dbo, "EventExcludeAnimalsInLocations", DEFAULTS["EventExcludeAnimalsInLocations"])
-
 def event_search_columns(dbo: Database) -> str:
     return cstring(dbo, "EventSearchColumns", DEFAULTS["EventSearchColumns"])
 
@@ -1325,6 +1356,9 @@ def petfinder_hide_unaltered(dbo: Database) -> bool:
 
 def petfinder_send_adopted(dbo: Database) -> bool:
     return cboolean(dbo, "PetFinderSendAdopted", False)
+
+def petfinder_send_adopted_photo(dbo: Database) -> bool:
+    return cboolean(dbo, "PetFinderSendAdoptedPhoto", False)
 
 def petfinder_send_holds(dbo: Database) -> bool:
     return cboolean(dbo, "PetFinderSendHolds", False)
@@ -1362,6 +1396,9 @@ def petlink_owner_email(dbo: Database) -> str:
 def petlink_password(dbo: Database) -> str:
     return cstring(dbo, "PetLinkPassword")
 
+def petlink_register_all(dbo: Database) -> bool:
+    return cboolean(dbo, "PetLinkRegisterAll")
+
 def petrescue_user(dbo: Database) -> str:
     return cstring(dbo, "PetRescueFTPUser")
 
@@ -1388,6 +1425,9 @@ def petslocated_includeshelter(dbo: Database) -> bool:
 
 def petslocated_animalflag(dbo: Database) -> str:
     return cstring(dbo, "PetsLocatedAnimalFlag", DEFAULTS["PetsLocatedAnimalFlag"])
+
+def publish_as_crossbreed(dbo: Database) -> List[int]:
+    return cintlist(dbo, "PublishAsCrossbreed", DEFAULTS["PublishAsCrossbreed"])
 
 def publisher_use_comments(dbo: Database) -> bool:
     return cboolean(dbo, "PublisherUseComments", DEFAULTS["PublisherUseComments"] == "Yes")
@@ -1521,6 +1561,9 @@ def smdb_locked(dbo: Database) -> bool:
 def smtp_override(dbo: Database) -> bool:
     return cboolean(dbo, "SMTPOverride", DEFAULTS["SMTPOverride"] == "Yes")
 
+def smtp_reply_as_from(dbo: Database) -> bool:
+    return cboolean(dbo, "SMTPReplyAsFrom", DEFAULTS["SMTPReplyAsFrom"] == "Yes")
+
 def smtp_server(dbo: Database) -> str:
     return cstring(dbo, "SMTPServer")
 
@@ -1641,6 +1684,9 @@ def vetenvoy_akcreunite_enabled(dbo: Database) -> bool:
 
 def waiting_list_default_urgency(dbo: Database) -> int:
     return cint(dbo, "WaitingListDefaultUrgency", DEFAULTS["WaitingListDefaultUrgency"])
+
+def waiting_list_default_removal_weeks(dbo: Database) -> int:
+    return cint(dbo, "WaitingListDefaultRemovalWeeks", DEFAULTS["WaitingListDefaultRemovalWeeks"])
 
 def waiting_list_rank_by_species(dbo: Database) -> bool:
     return cboolean(dbo, "WaitingListRankBySpecies")

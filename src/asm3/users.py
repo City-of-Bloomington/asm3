@@ -40,6 +40,7 @@ DELETE_BOARDING                 = "dbi"
 
 ADD_CLINIC                      = "acl"
 VIEW_CLINIC                     = "vcl"
+VIEW_CONSULTING_ROOM            = "vcrc"
 CHANGE_CLINIC                   = "ccl"
 DELETE_CLINIC                   = "dcl"
 
@@ -487,6 +488,30 @@ def get_users(dbo: Database, user: str = "") -> Results:
         out.append(u)
     return out
 
+def get_users_with_permission(dbo: Database, perm: str) -> Results:
+    """
+    Returns a list of all system users and a pipe separated list of their roles.
+    Only returns users who have the permission perm.
+    """
+    users = dbo.query("SELECT * FROM users ORDER BY UserName")
+    roles = dbo.query("SELECT ur.*, r.RoleName, r.SecurityMap FROM userrole ur INNER JOIN role r ON ur.RoleID = r.ID")
+    out = []
+    for u in users:
+        roleids = []
+        rolenames = []
+        hasperm = u.SUPERUSER == 1
+        for r in roles:
+            if r.USERID == u.ID:
+                roleids.append(str(r.ROLEID))
+                rolenames.append(str(r.ROLENAME))
+                if has_security_flag(r.SECURITYMAP, perm): 
+                    hasperm = True
+        u.ROLEIDS = "|".join(roleids)
+        u.ROLES = "|".join(rolenames)
+        if hasperm:
+            out.append(u)
+    return out
+
 def get_user(dbo: Database, user: str) -> ResultRow:
     """
     Returns a single user account by name. Returns None if no user account is found.
@@ -785,7 +810,7 @@ def update_session(dbo: Database, session: Session, username: str) -> None:
         session.visibleanimalids = ",".join(va)
     session.config_ts = asm3.i18n.format_date(asm3.i18n.now(), "%Y%m%d%H%M%S")
 
-def web_login(post: PostedData, session: Session, remoteip: str, useragent: str, path: str) -> str:
+def web_login(post: PostedData, session: Session, remoteip: str, useragent: str, path: str, use2fa: bool = True) -> str:
     """
     Performs a login and sets up the user's session.
     NOTE: ASM3 will no longer allow login on ASM2 databases due to update_session above calling
@@ -819,18 +844,18 @@ def web_login(post: PostedData, session: Session, remoteip: str, useragent: str,
     if user is None:
         asm3.al.error("database:%s username:%s password:%s failed authentication from %s [%s]" % (database, username, password, remoteip, useragent), "users.web_login", dbo)
         return "FAIL"
-
-    if not authenticate_ip(user, remoteip):
-        asm3.al.error("user %s from %s [%s] failed ip restriction check '%s'" % (username, remoteip, useragent, user.IPRESTRICTION), "users.web_login", dbo)
-        return "FAIL"
-
+    
     # Check if this user has been disabled from logging in
     if "DISABLELOGIN" in user and user.DISABLELOGIN == 1:
         asm3.al.error("user %s from %s [%s] failed as account has logins disabled" % (username, remoteip, useragent), "users.web_login", dbo)
         return "FAIL"
 
+    if not authenticate_ip(user, remoteip):
+        asm3.al.error("user %s from %s [%s] failed ip restriction check '%s'" % (username, remoteip, useragent, user.IPRESTRICTION), "users.web_login", dbo)
+        return "BADIP"
+
     # If the user has 2FA enabled, check it
-    if "ENABLETOTP" in user and "OTPSECRET" in user and user.ENABLETOTP == 1:
+    if use2fa and "ENABLETOTP" in user and "OTPSECRET" in user and user.ENABLETOTP == 1:
         if onetimepass == "":
             asm3.al.debug("user %s has 2FA enabled and no code has been given" % username, "users.web_login", dbo)
             return "ASK2FA"

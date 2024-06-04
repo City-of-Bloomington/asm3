@@ -1,0 +1,132 @@
+# chipprefixes.txt
+# This is a delimited file in the format:
+# LENGTH | REGEX | NAME | LOCALES 
+# Whitespace between the pipes will be trimmed after reading.
+# The locales element is optional, with an empty string making the prefix applied to all locales.
+# Multiple locales should be separated by a space.
+# Lines without at least 2 pipe separators are ignored.
+
+16 | ^AVID                | AVID
+14 | ^TR                  | AKC Reunite 
+9  | ^\d+$                | AVID 
+11 | ^\d{3}\*\d{3}\*\d{3} | AVID
+11 | ^\d{3}\-\d{3}\-\d{3} | AVID
+10 | ^0A1                 | 24PetWatch
+10 | ^0A0                 | Microchip ID
+10 | ^0D0D                | Banfield
+10 | ^000                 | Trovan | en_AU
+10 | ^000                 | AKC Reunite | en
+10 | ^0C0                 | M4S ID
+10 | ^1\d+A               | AVID 
+10 | ^4                   | HomeAgain 
+10 | ^7E1                 | Microchip ID 
+10 | ^9A1                 | 24PetWatch 
+15 | ^250                 | I-CAD
+15 | ^360981              | Novartis
+15 | ^5080941             | Felixcan | en_MZ
+15 | ^578098              | Kruuse Norge | nb
+15 | ^578077              | AVID Friendchip Norway | nb
+15 | ^578094              | AVID Friendchip Norway | nb
+15 | ^578097              | AVID Friendchip Norway | nb
+15 | ^6200001             | Maria João Gavina Alves da Conceição
+15 | ^6200900             | Dinazoo
+15 | ^6200941             | Gardipet 
+15 | ^6200953             | Propecuária
+15 | ^62009631            | AnimallTAG Europa LDA 
+15 | ^6200978             | MSD – Animal Health,Lda
+15 | ^6200982             | MSD – Animal Health,Lda
+15 | ^6200981             | Virbac            |
+15 | ^6200985             | Campifarma
+15 | ^6200991             | Medinfar-Sorológico    
+15 | ^62009920            | Campifarma  
+15 | ^62009921            | Campifarma        
+15 | ^688                 | Serbia
+15 | ^752                 | Trovan Sweden
+15 | ^900008              | Orthana Intertrade
+15 | ^900023              | Asian Information Technology
+15 | ^900026              | DT Japan
+15 | ^900042              | Royal Tag
+15 | ^900074              | SmartTag
+15 | ^900079              | PetLog | en_GB
+15 | ^900085              | Petstablished
+15 | ^900088              | Insprovet
+15 | ^900108              | Viaguard
+15 | ^900111              | International Pet Registry
+15 | ^900113              | International Pet Registry
+15 | ^900115              | International Pet Registry
+15 | ^900118              | International Pet Registry
+15 | ^900128              | Gepe-Geimuplast
+15 | ^900138              | ID-Ology
+15 | ^900139              | SmartTag
+15 | ^900164              | Save This Life
+15 | ^900182              | Petlog
+15 | ^900141              | SmartTag
+15 | ^900219              | Absonutrix Sale Thailand | en_TH th
+15 | ^900235              | Fi Nano  
+15 | ^90026               | 4D Technology/Petsafe
+15 | ^9010                | Absonutrix Sale Thailand | en_TH th
+15 | ^900182              | Dinazoo | en_PT pt
+15 | ^9001                | Absonutrix Sale Thailand | en_TH th
+15 | ^9000                | Absonutrix Sale Thailand | en_TH th
+15 | ^900"                | BCDS
+15 | ^911002              | 911PetChip | en
+15 | ^933                 | Buddy ID
+15 | ^938                 | Disgan | en_PT pt
+15 | ^939                 | M4S ID
+15 | ^9410000             | 24PetWatch
+15 | ^941                 | Felixcan
+15 | ^941                 | Gardipet | en_PT pt
+15 | ^943                 | BCDS
+15 | ^945                 | BCDS
+15 | ^952                 | M4S ID
+15 | ^953010002           | Back Home | en_AU
+15 | ^953                 | Virbac | en_AU en_NZ
+15 | ^953                 | PetLog | en_GB
+15 | ^953                 | Propecuária | en_PT pt
+15 | ^955                 | Biolog-ID
+15 | ^956                 | AKC Reunite | en
+15 | ^956                 | Trovan
+15 | ^958                 | 3N Active Card Lda | en_PT pt
+15 | ^965                 | 4D Technology/Petsafe
+15 | ^960011              | PetProtect
+15 | ^965                 | Buddy ID | en
+15 | ^965                 | Microchip ID                       
+15 | ^966                 | Petlog
+15 | ^967                 | Rfdynamics
+15 | ^968                 | BCDS en_AU
+15 | ^968                 | AKC CAR
+15 | ^972055              | Anibase/Identichip | en_GB
+15 | ^972                 | Planet ID
+15 | ^977                 | AVID
+15 | ^978102              | Anibase/Identichip | en_GB
+15 | ^978                 | Virbac/Back Home | en_AU
+15 | ^978                 | Global-ident Connect | en_NZ
+15 | ^978                 | Chevillot/Back Home
+15 | ^978                 | Plurivet | en_PT pt
+15 | ^980000              | Agrident
+15 | ^900085              | Medinfar-Sorológico | en_PT pt
+15 | ^98101               | DataMARS/Banfield
+15 | ^98102               | DataMARS/PetLink
+15 | ^98103               | DataMARS/PetLink
+15 | ^981                 | Novartis | en_AU
+15 | ^981                 | DataMARS/Bayer ResQ
+15 | ^982009              | Allflex
+15 | ^982                 | 24PetWatch
+15 | ^984                 | Nedap
+15 | ^985170              | HomeAgain Test Chip | en
+15 | ^9851                | Anibase/Identichip | en_GB
+15 | ^985                 | Lifechip | en_AU
+15 | ^985                 | HomeAgain
+15 | ^9861                | Anibase/Identichip | en_GB
+15 | ^987                 | SmartTag
+15 | ^9900000             | nanoChip
+15 | ^9910010             | HomeSafe | en_AU
+15 | ^991001911           | 911PetChip | en
+15 | ^9910010             | AKC Reunite | en
+15 | ^991001              | Medinfar-Sorológico | en_PT pt
+15 | ^9910030             | PEEVA | en
+15 | ^9910030             | Allflex | en_AU
+15 | ^9910039             | 911PetChip | en
+15 | ^9910                | Absonutrix Sale Thailand | en_TH th
+15 | ^992                 | International Pet Registry
+15 | ^999                 | Transponder Test

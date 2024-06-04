@@ -2,7 +2,7 @@ Insurance Cover Notes between two dates
 ###	
 Movements
 ###
-34004/Any rev01
+34004/Any rev04
 ###
 Insurance cover notes issued between two dates
 ###
@@ -11,13 +11,13 @@ en
 $VAR from DATE Adopted between$
 $VAR to DATE and$
 
-SELECT ShelterCode, AnimalName, MostRecentEntryDate, MovementDate, InsuranceNumber,
+SELECT ShelterCode, AnimalName, animal.ID AS AID, MostRecentEntryDate, MovementDate, InsuranceNumber,
 species.SpeciesName, animal.TimeOnShelter, animal.DaysOnShelter, animal.IdentichipNumber,
 animaltype.AnimalType AS theType,
 animal.BreedName,
-oo.OwnerName AS OOName, oo.OwnerAddress AS OOAddress, oo.OwnerTown AS OOTown, oo.OwnerCounty AS OOCounty, oo.OwnerPostcode AS OOPostcode, 
+oo.OwnerName AS OOName, oo.ID AS OID, oo.OwnerAddress AS OOAddress, oo.OwnerTown AS OOTown, oo.OwnerCounty AS OOCounty, oo.OwnerPostcode AS OOPostcode, 
 oo.EmailAddress AS OOEmail,
-no.OwnerName, no.OwnerAddress,
+no.OwnerName, no.ID AS NID, no.OwnerAddress,
 no.OwnerTown, no.OwnerCounty,
 no.OwnerPostcode, no.EmailAddress, no.HomeTelephone, no.WorkTelephone, no.MobileTelephone
 FROM adoption
@@ -29,38 +29,35 @@ LEFT OUTER JOIN owner oo ON animal.OriginalOwnerID = oo.ID
 WHERE InsuranceNumber <> ''AND MovementType = 1 AND MovementDate >= '$@from$' AND MovementDate <= '$@to$' ORDER BY MovementDate
 ###
 $$HEADER
-<table border=1><tr>
-<td><b>Name</b></td>
-<td><b>Code</b></td>  
-<td><b>Type</b></td>
-<td><b>Breed</b></td>
-<td><b>Microchip</b></td>
-<td><b>Entered Shelter</b></td>
-<td><b>Time On Shelter</b></td>
-<td><b>Came From</b></td>
-<td><b>Adoption Date</b></td>
-<td><b>Adopted To</b></td>
-<td><b>Policy Number<b></td>
+<table border=1>
+<thead>
+<tr>
+<th><b>Name</b></th>
+<th><b>Code</b></th>  
+<th><b>Type</b></th>
+<th><b>Breed</b></th>
+<th><b>Microchip</b></th>
+<th><b>Entered Shelter</b></th>
+<th><b>Time On Shelter</b></th>
+<th><b>Came From</b></th>
+<th><b>Adoption Date</b></th>
+<th><b>Adopted To</b></th>
+<th><b>Policy Number</b></th>
 </tr>
+</thead>
+<tbody>
 HEADER$$
 
 $$BODY
 <tr>
-<td>$ANIMALNAME</td>
+<td><a target="_blank" href="animal?id=$AID">$ANIMALNAME</a></td>
 <td>$SHELTERCODE</td>
 <td>$theType</td>
 <td>$BreedName</td>
 <td>$IdentichipNumber</td>
 <td>$MostRecentEntryDate</td>
 <td>$TimeOnShelter ($DaysOnShelter days)</td>
-<td><i>$OOName</i><br/>
-$OOAddress<br/>
-$OOTown<br/>
-$OOCounty<br/>
-$OOPostcode<br/>
-$OOEmail</td>
-<td>$MOVEMENTDATE</td>
-<td><i>$OwnerName</i><br/>
+<td><i><a target="_blank" href="person?id=$OID">$OOName</a></i><br/>
 $OwnerAddress<br/>
 $OwnerTown<br/>
 $OwnerCounty<br/>
@@ -72,7 +69,7 @@ H: $HOMETELEPHONE, W: $WORKTELEPHONE, C: $MOBILETELEPHONE</td>
 BODY$$
 
 $$FOOTER
-
+</tbody>
 </table>
 <h2>Total Insurance Cover Notes: {COUNT.SHELTERCODE}</h2>
 FOOTER$$

@@ -1,0 +1,67 @@
+Hours Worked between Two Dates for Selected Person
+###
+Rota
+###
+33609/PostgreSQL rev01
+###
+All shifts/overtime worked between two dates for selected person
+###
+en
+###
+$VAR from DATE Enter from date$
+$VAR to DATE Enter to date$
+
+SELECT o.OwnerName,
+ort.StartDateTime, ort.EndDateTime, ort.Comments, rt.RotaType, wt.WorkType, 
+EXTRACT(HOUR FROM EndDateTime - StartDateTime)::real + (EXTRACT(MINUTE FROM EndDateTime - StartDateTime)::real / 60)  AS hours,
+EXTRACT(DAY FROM EndDateTime - StartDateTime)::integer  AS days
+FROM ownerrota ort
+INNER JOIN owner o ON o.ID = ort.OwnerID
+INNER JOIN lksrotatype rt ON rt.ID = ort.RotaTypeID
+INNER JOIN lkworktype wt ON wt.ID = ort.WorkTypeID
+WHERE ort.StartDateTime >= '$@from$' AND ort.EndDateTime <= '$@to$ 23:59:59'
+AND ort.RotaTypeID < 10 AND o.ID = $ASK PERSON$
+ORDER BY o.OwnerName, rt.RotaType, ort.StartDateTime
+###
+$$HEADER
+HEADER$$
+
+$$GROUP_WorkType
+$$HEAD
+<h2>$WorkType</h2>
+$$FOOT
+<p>Total $WORKTYPE hours: {SUM.Hours}</p>
+GROUP$$
+
+$$GROUP_OwnerName
+$$HEAD
+<h3>$OWNERNAME</h3>
+<table border=1>
+<thead>
+<tr>
+<th><b>Start</b></th>
+<th><b>End</b></th>
+<th><b>Hours</b></th>
+<th><b>Type</b></th>
+<th><b>Comments</b></th>
+</tr>
+</thead>
+<tbody>
+$$FOOT
+</tbody>
+</table>
+<p>Total $OWNERNAME $WORKTYPE hours: {SUM.Hours}</p>
+GROUP$$
+
+$$BODY
+<tr>
+<td>$STARTDATETIME</td>
+<td>$ENDDATETIME</td>
+<td>$HOURS</td>
+<td>$ROTATYPE</td>
+<td>$COMMENTS</td>
+</tr>
+BODY$$
+
+$$FOOTER
+FOOTER$$

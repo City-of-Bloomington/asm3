@@ -2,7 +2,7 @@ Birthday List (Adopted)
 ###
 Auditing
 ###
-MySQL rev01
+MySQL rev03
 ###
 Owners who adopted animals with birthdays in the selected month.
 ###
@@ -10,7 +10,7 @@ en
 ###
 $VAR monthno NUMBER Enter the month (1 for January, 12 for December)$
 
-SELECT owner.OwnerName, 
+SELECT owner.OwnerName, owner.ID AS OID,
 owner.OwnerAddress, 
 owner.OwnerTown, 
 owner.OwnerCounty, 
@@ -18,7 +18,7 @@ owner.OwnerPostcode,
 owner.EmailAddress,
 animal.DateOfBirth, 
 animal.ShelterCode,
-animal.AnimalName,
+animal.AnimalName, animal.ID AS AID,
 species.SpeciesName,
 adoption.MovementDate AS AdoptionDate
 FROM adoption
@@ -32,16 +32,20 @@ AND MONTH(animal.DateOfBirth) = $@monthno$
 ORDER BY DAY(animal.DateOfBirth)
 ###
 $$HEADER
-<table border=1><tr>
-<td><b>Owner</b></td>
-<td><b>Date of birth</b></td>
-<td><b>Animal</b></td>
-<td><b>Adopted</b></td>
+<table border=1>
+<thead>
+<tr>
+<th><b>Owner</b></th>
+<th><b>Date of birth</b></th>
+<th><b>Animal</b></th>
+<th><b>Adopted</b></th>
 </tr>
+</thead>
+<tbody>
 HEADER$$
 
 $$BODY<tr>
-<td><i>$OWNERNAME</i><br/>
+<td><i><a target="_blank" href="person?id=$OID">$OWNERNAME</a></i><br/>
 $OWNERADDRESS<br/>
 $OWNERTOWN<br/>
 $OWNERCOUNTY<br/>
@@ -49,12 +53,13 @@ $OWNERPOSTCODE<br/>
 <i>$EMAILADDRESS</i>
 </td>
 <td>$DATEOFBIRTH</td>
-<td>$ANIMALNAME ($SPECIESNAME, $SHELTERCODE)</td>
+<td><a target="_blank" href="animal?id=$AID">$ANIMALNAME</a> ($SPECIESNAME, $SHELTERCODE)</td>
 <td>$ADOPTIONDATE</td>
 </tr>
 BODY$$
 
 $$FOOTER
+</tbody>
 </table>
 FOOTER$$
 &&&
@@ -62,7 +67,7 @@ Birthday List (Adopted)
 ###
 Auditing
 ###
-PostgreSQL rev01
+PostgreSQL rev03
 ###
 Owners who adopted animals with birthdays in the selected month.
 ###
@@ -70,7 +75,7 @@ en
 ###
 $VAR monthno NUMBER Enter the month (1 for January, 12 for December)$
 
-SELECT owner.OwnerName, 
+SELECT owner.OwnerName, owner.ID AS OID, 
 owner.OwnerAddress, 
 owner.OwnerTown, 
 owner.OwnerCounty, 
@@ -78,7 +83,7 @@ owner.OwnerPostcode,
 owner.EmailAddress,
 animal.DateOfBirth, 
 animal.ShelterCode,
-animal.AnimalName,
+animal.AnimalName, animal.ID AS AID,
 species.SpeciesName,
 adoption.MovementDate AS AdoptionDate
 FROM adoption
@@ -92,16 +97,20 @@ AND EXTRACT(MONTH FROM animal.DateOfBirth)::INTEGER = $@monthno$
 ORDER BY EXTRACT(DAY FROM animal.DateOfBirth)::INTEGER
 ###
 $$HEADER
-<table border=1><tr>
-<td><b>Owner</b></td>
-<td><b>Date of birth</b></td>
-<td><b>Animal</b></td>
-<td><b>Adopted</b></td>
+<table border=1>
+<thead>
+<tr>
+<th><b>Owner</b></th>
+<th><b>Date of birth</b></th>
+<th><b>Animal</b></th>
+<th><b>Adopted</b></th>
 </tr>
+</thead>
+<tbody>
 HEADER$$
 
 $$BODY<tr>
-<td><i>$OWNERNAME</i><br/>
+<td><i><a target="_blank" href="person?id=$OID">$OWNERNAME</a></i><br/>
 $OWNERADDRESS<br/>
 $OWNERTOWN<br/>
 $OWNERCOUNTY<br/>
@@ -109,11 +118,12 @@ $OWNERPOSTCODE<br/>
 <i>$EMAILADDRESS</i>
 </td>
 <td>$DATEOFBIRTH</td>
-<td>$ANIMALNAME ($SPECIESNAME, $SHELTERCODE)</td>
+<td><a target="_blank" href="animal?id=$AID">$ANIMALNAME</a> ($SPECIESNAME, $SHELTERCODE)</td>
 <td>$ADOPTIONDATE</td>
 </tr>
 BODY$$
 
 $$FOOTER
+</tbody>
 </table>
 FOOTER$$

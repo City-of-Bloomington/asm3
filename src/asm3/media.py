@@ -8,7 +8,7 @@ import asm3.log
 import asm3.utils
 from asm3.i18n import _
 from asm3.sitedefs import RESIZE_IMAGES_DURING_ATTACH, RESIZE_IMAGES_SPEC, SCALE_PDF_DURING_ATTACH, SCALE_PDF_CMD, SERVICE_URL, WATERMARK_FONT_BASEDIRECTORY
-from asm3.typehints import Database, PostedData, ResultRow, Results, Tuple
+from asm3.typehints import Database, Dict, PostedData, ResultRow, Results, Tuple
 
 from datetime import datetime
 import os
@@ -655,8 +655,10 @@ def send_signature_request(dbo: Database, username: str, mid: int, post: PostedD
     emailadd = post["to"]
     body = post["body"]
     m = get_media_by_id(dbo, mid)
-    if m is None: raise asm3.utils.ASMValidationError("cannot find media with ID %s" % mid)
-    if m.MEDIAMIMETYPE != "text/html": raise asm3.utils.ASMError("invalid mime type for document signing %s" % m.MEDIAMIMETYPE)
+    if m is None: 
+        raise asm3.utils.ASMValidationError("cannot find media with ID %s" % mid)
+    if m.MEDIAMIMETYPE != "text/html": 
+        raise asm3.utils.ASMValidationError("invalid mime type for document signing %s" % m.MEDIAMIMETYPE)
     token = asm3.utils.md5_hash_hex("%s%s" % (m.ID, m.LINKID))
     url = "%s?account=%s&method=sign_document&email=%s&formid=%d&token=%s" % (SERVICE_URL, dbo.database, asm3.utils.strip_email_address(emailadd).replace("@", "%40"), mid, token)
     body = asm3.utils.replace_url_token(body, url, m.MEDIANOTES)
@@ -678,14 +680,33 @@ def sign_document(dbo: Database, username: str, mid: int, sigurl: str, signdate:
     asm3.al.debug("signing document %s for %s" % (mid, username), "media.sign_document", dbo)
     SIG_PLACEHOLDER = "signature:placeholder"
     m = dbo.first_row(dbo.query("SELECT * FROM media WHERE ID=?", [mid]))
+    if m is None:  
+        raise asm3.utils.ASMValidationError("cannot find media with ID %s" % mid)
     # Is this an HTML document?
     if m.MEDIAMIMETYPE != "text/html":
-        asm3.al.error("document %s is not HTML" % mid, "media.sign_document", dbo)
-        raise asm3.utils.ASMValidationError("Cannot sign a non-HTML document")
+        asm3.al.error("document %s is not HTML (%s)" % (mid, m.MEDIAMIMETYPE), "media.sign_document", dbo)
+        raise asm3.utils.ASMValidationError("invalid mime type for document signing %s" % m.MEDIAMIMETYPE)
     # Has this document already been signed? 
     if m.SIGNATUREHASH:
         asm3.al.error("document %s has already been signed" % mid, "media.sign_document", dbo)
         raise asm3.utils.ASMValidationError("Document is already signed")
+    try:
+        # If a sigurl is set, verify that it contains valid base64 data
+        if sigurl != "":
+            b64data = sigurl[sigurl.find(",")+1:]
+            imgdata = asm3.utils.base64decode(b64data)
+            # Verify that the data is a valid image and contains fewer
+            # white pixels than a set amount.
+            # The normal sized image is 10000 total pixes and the guide line is about 900px
+            # We require at least 300 pixels to have been drawn on to qualify as a signature
+            # as this is one drawn line of less than about an inch on screen.
+            whitepx, totalpx = image_pixel_count_white(imgdata)
+            if totalpx - whitepx < 1200:
+                asm3.al.error(f"white pixels={whitepx}, total={totalpx}: difference < 1200", "media.sign_document", dbo)
+                raise Exception("White pixel ratio too high")
+    except Exception as err:
+        asm3.al.error("signature data is not valid: %s" % err, "media.sign_document", dbo)
+        raise asm3.utils.ASMValidationError("Signature data is not valid")
     # Does the document have a signing placeholder image? If so, replace it
     content = asm3.utils.bytes2str(asm3.dbfs.get_string_id(dbo, m.DBFSID))
     if content.find(SIG_PLACEHOLDER) != -1:
@@ -734,7 +755,35 @@ def update_media_from_form(dbo: Database, username: str, post: PostedData) -> No
         "UpdatedSinceLastPublish": 1
     }, username, setLastChanged=False)
 
+def clone_media(dbo: Database, username: str, mediaid: int, linktypeid: int, linkid: int) -> None:
+    """ Clones a media record with a new link """
+    m = get_media_by_id(dbo, mediaid)
+    nextid = dbo.get_id("media")
+    return dbo.insert("media", {
+        "ID":                   nextid,
+        "DBFSID":               m.DBFSID,
+        "MediaSize":            m.MEDIASIZE,
+        "MediaName":            m.MEDIANAME,
+        "MediaMimeType":        m.MEDIAMIMETYPE,
+        "MediaType":            m.MEDIATYPE,
+        "MediaNotes":           m.MEDIANOTES,
+        "WebsitePhoto":         0,
+        "WebsiteVideo":         0,
+        "DocPhoto":             0,
+        "ExcludeFromPublish":   0,
+        # ASM2_COMPATIBILITY
+        "NewSinceLastPublish":  0,
+        "UpdatedSinceLastPublish": 0,
+        # ASM2_COMPATIBILITY
+        "LinkID":               linkid,
+        "LinkTypeID":           linktypeid,
+        "Date":                 dbo.now(),
+        "CreatedDate":          dbo.now(),
+        "RetainUntil":          m.RETAINUNTIL
+    }, username, setCreated=False, generateID=False)
+
 def update_media_link(dbo: Database, username: str, mediaid: int, linktypeid: int, linkid: int) -> None:
+    """ Updates the media with id to have a new link """
     dbo.update("media", mediaid, {
         "LinkID":   linkid,
         "LinkTypeID": linktypeid,
@@ -841,6 +890,37 @@ def watermark_media(dbo: Database, username: str, mid: int) -> None:
     update_file_content(dbo, username, mid, imagedata)
     asm3.audit.edit(dbo, username, "media", mid, "", "media id %d watermarked" % (mid))    
 
+def image_pixel_count_colours(imagedata: bytes) -> Tuple[int, Dict]:
+    """
+    Counts the different coloured pixels in the image represented by imagedata.
+    Returns a Tuple of total pixels, followed by a dict of RGB values and their counts within the image.
+    """
+    file_data = asm3.utils.bytesio(imagedata)
+    im = Image.open(file_data)
+    cc = {}
+    width, height = im.size
+    rgb_image = im.convert('RGB')
+    # iterate through each pixel in the image and keep a count per unique color
+    for x in range(width):
+        for y in range(height):
+            rgb = rgb_image.getpixel((x, y))
+            if rgb in cc:
+                cc[rgb] += 1
+            else:
+                cc[rgb] = 1
+    return (width * height, cc)
+
+def image_pixel_count_white(imagedata: bytes) -> Tuple[int, int]:
+    """
+    Counts the number of white pixels in imagedata.
+    Returns a tuple of white pixels vs total pixels.
+    """
+    totalpixels, cc = image_pixel_count_colours(imagedata)
+    for k, v in cc.items():
+        if k == (255, 255, 255):
+            return (v, totalpixels)
+    return (0, totalpixels)
+
 def scale_image(imagedata: bytes, resizespec: str) -> bytes:
     """
     Produce a scaled version of an image. 
@@ -881,7 +961,7 @@ def verify_image(imagedata: bytes) -> bool:
     except Exception as err:
         asm3.al.error("failed verifying image: %s" % str(err), "media.verify_image")
         return False
-
+    
 def auto_rotate_image(dbo: Database, imagedata: bytes) -> bytes:
     """
     Automatically rotate an image according to the orientation of the
@@ -988,7 +1068,9 @@ def remove_media_after_exit(dbo: Database, years: int = None, username: str = "s
     if enabled and exityears > 0:
         cutoff = dbo.today(offset = exityears * -365)
         animals = dbo.query_list("SELECT ID FROM animal WHERE Archived=1 AND (ActiveMovementDate < ? OR DeceasedDate < ?)", (cutoff, cutoff))
-        affected = dbo.delete("media", "LinkType=0 AND LinkID IN (%s)" % ",".join(animals), username) 
+        affected = 0
+        if len(animals) > 0:
+            affected = dbo.delete("media", "LinkType=0 AND LinkID IN (%s)" % ",".join(animals), username) 
         asm3.al.debug("removed %d expired animal media items (remove %s years after exit)" % (affected, years), "media.remove_media_after_exit", dbo)
         return "OK %s" % affected
 

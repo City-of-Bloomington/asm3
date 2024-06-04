@@ -1,9 +1,11 @@
 
+import asm3.cachedisk
 import asm3.configuration
 import asm3.financial
 import asm3.utils
 from asm3.i18n import _
-from asm3.typehints import datetime, Database, Results, Tuple
+from asm3.sitedefs import URL_MICROCHIP_PREFIXES
+from asm3.typehints import datetime, Database, Dict, List, Results, Tuple
 
 import re
 
@@ -26,10 +28,11 @@ import re
 #   vat - has an IsVAT column (donationtype)
 LOOKUP_TABLES = {
     "lksaccounttype":   (_("Account Types"), "AccountType", _("Type"), "", "", ("accounts.AccountType",)),
-    "lkanimalflags":    (_("Animal Flags"), "Flag", _("Flag"), "", "add del", ""),
+    "lkanimalflags":    (_("Animal Flags"), "Flag", _("Flag"), "", "add del ret", ""),
     "animaltype":       (_("Animal Types"), "AnimalType", _("Type"), "AnimalDescription", "add del ret", ("animal.AnimalTypeID",)),
     "basecolour":       (_("Colors"), "BaseColour", _("Color"), "BaseColourDescription", "add del ret pubcol", ("animal.BaseColourID", "animallost.BaseColourID", "animalfound.BaseColourID")),
     "lkboardingtype":   (_("Boarding Types"), "BoardingName", _("Boarding Type"), "BoardingDescription", "add del ret cost", ("animalboarding.BoardingTypeID",)),
+    "lkclinictype":     (_("Clinic Appointment Types"), "ClinicTypeName", _("Appointment Type"), "ClinicTypeDescription", "add del ret", ("clinicappointment.ClinicTypeID",)),
     "breed":            (_("Breeds"), "BreedName", _("Breed"), "BreedDescription", "add del ret species pubbreed", ("animal.BreedID", "animal.Breed2ID", "animallost.BreedID", "animalfound.BreedID")),
     "lkcoattype":       (_("Coat Types"), "CoatType", _("Coat Type"), "", "add del", ("animal.CoatType",)),
     "citationtype":     (_("Citation Types"), "CitationName", _("Citation Type"), "CitationDescription", "add del ret cost", ("ownercitation.CitationTypeID",)),
@@ -40,6 +43,7 @@ LOOKUP_TABLES = {
     "donationpayment":  (_("Payment Methods"), "PaymentName", _("Type"), "PaymentDescription", "add del ret", ("ownerdonation.DonationPaymentID",)),
     "donationtype":     (_("Payment Types"), "DonationName", _("Type"), "DonationDescription", "add del ret cost vat acc", ("ownerdonation.DonationTypeID", "accounts.DonationTypeID")),
     "entryreason":      (_("Entry Reasons"), "ReasonName", _("Reason"), "ReasonDescription", "add del ret", ("animal.EntryReasonID", "adoption.ReturnedReasonID") ),
+    "lksentrytype":     (_("Entry Types"), "EntryTypeName", _("Type"), "", "", ("animal.EntryTypeID", "animalentry.EntryTypeID") ),
     "incidentcompleted":(_("Incident Completed Types"), "CompletedName", _("Completed Type"), "CompletedDescription", "add del ret", ("animalcontrol.IncidentCompletedID",)),
     "incidenttype":     (_("Incident Types"), "IncidentName", _("Type"), "IncidentDescription", "add del ret", ("animalcontrol.IncidentTypeID",)),
     "internallocation": (_("Internal Locations"), "LocationName", _("Location"), "LocationDescription", "add del ret units site", ("animal.ShelterLocation",)),
@@ -48,7 +52,7 @@ LOOKUP_TABLES = {
     "logtype":          (_("Log Types"), "LogTypeName", _("Type"), "LogTypeDescription", "add del ret", ("log.LogTypeID",)),
     "lksmovementtype":  (_("Movement Types"), "MovementType", _("Type"), "", "", ("adoption.MovementType", "animal.ActiveMovementType",)),
     "lksoutcome":       (_("Outcomes"), "Outcome", _("Outcome"), "", "", ""),
-    "lkownerflags":     (_("Person Flags"), "Flag", _("Flag"), "", "add del", ""),
+    "lkownerflags":     (_("Person Flags"), "Flag", _("Flag"), "", "add del ret", ""),
     "lksrotatype":      (_("Rota Types"), "RotaType", _("Type"), "", "", ("ownerrota.RotaTypeID",)),
     "lksex":            (_("Sexes"), "Sex", _("Sex"), "", "", ("animal.Sex", "animallost.Sex", "animalfound.Sex")),
     "lksize":           (_("Sizes"), "Size", _("Size"), "", "", ("animal.Size",)),
@@ -70,6 +74,7 @@ LOOKUP_TABLES = {
     "traptype":         (_("Equipment Loan Types"), "TrapTypeName", _("Type"), "TrapTypeDescription", "add del ret cost", ("ownertraploan.TrapTypeID",)),
     "vaccinationtype":  (_("Vaccination Types"), "VaccinationType", _("Type"), "VaccinationDescription", "add del ret cost sched", ("animalvaccination.VaccinationID",)),
     "voucher":          (_("Voucher Types"), "VoucherName", _("Type"), "VoucherDescription", "add del ret cost", ("ownervoucher.VoucherID",)),
+    "lkwaitinglistremoval": (_("Waiting List Removal"), "RemovalName", _("Type"), "", "add del", ("animalwaitinglist.WaitingListRemovalID",)),
     "lkworktype":       (_("Work Types"), "WorkType", _("Type"), "", "add del ret", ("ownerrota.WorkTypeID",))
 }
 LOOKUP_TABLELABEL = 0
@@ -78,114 +83,6 @@ LOOKUP_NAMELABEL = 2
 LOOKUP_DESCFIELD = 3
 LOOKUP_MODIFIERS = 4
 LOOKUP_FOREIGNKEYS = 5
-
-# Database of microchip manufacturer prefixes. locales is a space separated list of
-# locales the pattern is valid for (blank is all locales)
-# This list is evaluated in order, so entries with more specificity (ie. a locale and longer pattern)
-# should be placed first as the first match is returned.
-MICROCHIP_MANUFACTURERS = [
-    { "length": 16, "regex": r"^AVID", "name": "AVID", "locales": "" },
-    { "length": 14, "regex": r"^TR", "name": "AKC Reunite", "locales": "" },
-    { "length": 9,  "regex": r"^\d+$", "name": "AVID", "locales": "" },
-    { "length": 11, "regex": r"^\d{3}\*\d{3}\*\d{3}", "name": "AVID", "locales": "" },
-    { "length": 11, "regex": r"^\d{3}\-\d{3}\-\d{3}", "name": "AVID", "locales": "" },
-    { "length": 10, "regex": r"^0A1", "name": "24PetWatch", "locales": "" },
-    { "length": 10, "regex": r"^0A0", "name": "Microchip ID", "locales": "" },
-    { "length": 10, "regex": r"^0D0D", "name": "Banfield", "locales": "" },
-    { "length": 10, "regex": r"^000", "name": "Trovan", "locales": "en_AU" },
-    { "length": 10, "regex": r"^000", "name": "AKC Reunite", "locales": "en" },
-    { "length": 10, "regex": r"^0C0", "name": "M4S ID", "locales": "" },
-    { "length": 10, "regex": r"^1\d+A", "name": "AVID", "locales": "" }, 
-    { "length": 10, "regex": r"^4", "name": "HomeAgain", "locales": "" }, 
-    { "length": 10, "regex": r"^7E1", "name": "Microchip ID", "locales": "" }, 
-    { "length": 10, "regex": r"^9A1", "name": "24PetWatch", "locales": "" }, 
-    { "length": 15, "regex": r"^250", "name": "I-CAD", "locales": ""},
-    { "length": 15, "regex": r"^360981", "name": "Novartis", "locales": "" },
-    { "length": 15, "regex": r"^5080941", "name": "Felixcan", "locales": "en_MZ" },
-    { "length": 15, "regex": r"^578098", "name": "Kruuse Norge", "locales": "nb" },
-    { "length": 15, "regex": r"^578077", "name": "AVID Friendchip Norway", "locales": "nb" },
-    { "length": 15, "regex": r"^578094", "name": "AVID Friendchip Norway", "locales": "nb" },
-    { "length": 15, "regex": r"^578097", "name": "AVID Friendchip Norway", "locales": "nb" },
-    { "length": 15, "regex": r"^688", "name": "Serbia", "locales": "" },
-    { "length": 15, "regex": r"^752", "name": "Trovan Sweden", "locales": "" },
-    { "length": 15, "regex": r"^900008", "name": "Orthana Intertrade", "locales": "" },
-    { "length": 15, "regex": r"^900023", "name": "Asian Information Technology", "locales": "" },
-    { "length": 15, "regex": r"^900026", "name": "DT Japan", "locales": "" },
-    { "length": 15, "regex": r"^900042", "name": "Royal Tag", "locales": "" },
-    { "length": 15, "regex": r"^900074", "name": "SmartTag", "locales": "" },
-    { "length": 15, "regex": r"^900079", "name": "PetLog", "locales": "en_GB" },
-    { "length": 15, "regex": r"^900085", "name": "Petstablished", "locales": "" },
-    { "length": 15, "regex": r"^900088", "name": "Insprovet", "locales": "" },
-    { "length": 15, "regex": r"^900108", "name": "Viaguard", "locales": "" },
-    { "length": 15, "regex": r"^900111", "name": "International Pet Registry", "locales": "" },
-    { "length": 15, "regex": r"^900113", "name": "International Pet Registry", "locales": "" },
-    { "length": 15, "regex": r"^900115", "name": "International Pet Registry", "locales": "" },
-    { "length": 15, "regex": r"^900118", "name": "International Pet Registry", "locales": "" },
-    { "length": 15, "regex": r"^900128", "name": "Gepe-Geimuplast", "locales": "" },
-    { "length": 15, "regex": r"^900138", "name": "ID-Ology", "locales": "" },
-    { "length": 15, "regex": r"^900139", "name": "SmartTag", "locales": "" },
-    { "length": 15, "regex": r"^900164", "name": "Save This Life", "locales": "" },
-    { "length": 15, "regex": r"^900182", "name": "Petlog", "locales": "" },
-    { "length": 15, "regex": r"^900141", "name": "SmartTag", "locales": "" },
-    { "length": 15, "regex": r"^90026", "name": "4D Technology/Petsafe", "locales": "" },
-    { "length": 15, "regex": r"^900", "name": "BCDS", "locales": "" },
-    { "length": 15, "regex": r"^9010202", "name": "Absonutrix Sale Thailand", "locales": "en_TH th" },
-    { "length": 15, "regex": r"^911002", "name": "911PetChip", "locales": "en" },
-    { "length": 15, "regex": r"^933", "name": "Buddy ID", "locales": "" },
-    { "length": 15, "regex": r"^939", "name": "M4S ID", "locales": "" },
-    { "length": 15, "regex": r"^9410000", "name": "PetKey", "locales": "" },
-    { "length": 15, "regex": r"^941", "name": "Felixcan", "locales": "" },
-    { "length": 15, "regex": r"^943", "name": "BCDS", "locales": "" },
-    { "length": 15, "regex": r"^945", "name": "BCDS", "locales": "" },
-    { "length": 15, "regex": r"^952", "name": "M4S ID", "locales": "" },
-    { "length": 15, "regex": r"^953010002", "name": "Back Home", "locales": "en_AU" },
-    { "length": 15, "regex": r"^95301", "name": "Australasian Animal Registry", "locales": "en_AU" },
-    { "length": 15, "regex": r"^953", "name": "Virbac", "locales": "en_AU en_NZ" },
-    { "length": 15, "regex": r"^953", "name": "PetLog", "locales": "en_GB" },
-    { "length": 15, "regex": r"^955", "name": "Biolog-ID", "locales": "" },
-    { "length": 15, "regex": r"^956", "name": "AKC Reunite", "locales": "en" },
-    { "length": 15, "regex": r"^956", "name": "Trovan", "locales": "" },
-    { "length": 15, "regex": r"^965", "name": "4D Technology/Petsafe", "locales": "" },
-    { "length": 15, "regex": r"^960011", "name": "PetProtect", "locales": "" },
-    { "length": 15, "regex": r"^965", "name": "Buddy ID", "locales": "en" },
-    { "length": 15, "regex": r"^965", "name": "Microchip ID", "locales": "" },
-    { "length": 15, "regex": r"^966", "name": "Petlog", "locales": "" },
-    { "length": 15, "regex": r"^967", "name": "Rfdynamics", "locales": "" },
-    { "length": 15, "regex": r"^968", "name": "BCDS", "locales": "en_AU" },
-    { "length": 15, "regex": r"^968", "name": "AKC CAR", "locales": "" },
-    { "length": 15, "regex": r"^972055", "name": "Anibase/Identichip", "locales": "en_GB" },
-    { "length": 15, "regex": r"^972", "name": "Planet ID", "locales": "" },
-    { "length": 15, "regex": r"^977", "name": "AVID", "locales": "" },
-    { "length": 15, "regex": r"^978102", "name": "Anibase/Identichip", "locales": "en_GB" },
-    { "length": 15, "regex": r"^978", "name": "Virbac/Back Home", "locales": "en_AU" },
-    { "length": 15, "regex": r"^978", "name": "Global-ident Connect", "locales": "en_NZ" },
-    { "length": 15, "regex": r"^978", "name": "Chevillot/Back Home", "locales": "" },
-    { "length": 15, "regex": r"^980000", "name": "Agrident", "locales": "" },
-    { "length": 15, "regex": r"^98101", "name": "DataMARS/Banfield", "locales": "" },
-    { "length": 15, "regex": r"^98102", "name": "DataMARS/PetLink", "locales": "" },
-    { "length": 15, "regex": r"^98103", "name": "DataMARS/PetLink", "locales": "" },
-    { "length": 15, "regex": r"^981", "name": "Novartis", "locales": "en_AU" },
-    { "length": 15, "regex": r"^981", "name": "DataMARS/Bayer ResQ", "locales": "" },
-    { "length": 15, "regex": r"^982009", "name": "Allflex", "locales": "" },
-    { "length": 15, "regex": r"^982", "name": "24PetWatch", "locales": "" },
-    { "length": 15, "regex": r"^984", "name": "Nedap", "locales": "" },
-    { "length": 15, "regex": r"^985170", "name": "HomeAgain Test Chip", "locales": "en" },
-    { "length": 15, "regex": r"^9851", "name": "Anibase/Identichip", "locales": "en_GB" },
-    { "length": 15, "regex": r"^985", "name": "Lifechip", "locales": "en_AU" },
-    { "length": 15, "regex": r"^985", "name": "HomeAgain", "locales": "" },
-    { "length": 15, "regex": r"^9861", "name": "Anibase/Identichip", "locales": "en_GB" },
-    { "length": 15, "regex": r"^987", "name": "SmartTag", "locales": "" },
-    { "length": 15, "regex": r"^9900000", "name": "nanoChip", "locales": "" },
-    { "length": 15, "regex": r"^9910030", "name": "Absonutrix Sale Thailand", "locales": "en_TH th" },
-    { "length": 15, "regex": r"^9910010", "name": "HomeSafe", "locales": "en_AU" },
-    { "length": 15, "regex": r"^991001911", "name": "911PetChip", "locales": "en" },
-    { "length": 15, "regex": r"^9910010", "name": "AKC Reunite", "locales": "en" },
-    { "length": 15, "regex": r"^9910030", "name": "PEEVA", "locales": "en" },
-    { "length": 15, "regex": r"^9910030", "name": "Allflex", "locales": "en_AU" },
-    { "length": 15, "regex": r"^9910039", "name": "911PetChip", "locales": "en" },
-    { "length": 15, "regex": r"^992", "name": "International Pet Registry", "locales": "" },
-    { "length": 15, "regex": r"^999", "name": "Transponder Test", "locales": ""}
-]
 
 # Currency codes used by payment processors when accepting payments
 CURRENCIES = [
@@ -897,8 +794,32 @@ def get_additionalfield_links(dbo: Database) -> Results:
 def get_additionalfield_types(dbo: Database) -> Results:
     return dbo.query("SELECT * FROM lksfieldtype ORDER BY FieldType")
 
-def get_animal_flags(dbo: Database) -> Results:
-    return dbo.query("SELECT * FROM lkanimalflags ORDER BY Flag")
+def _merge_db_flags(dbflags: Results, flags: str = "") -> Results:
+    """
+    Given a list of flag results from the database, adds any that are not present from
+    the pipe separated list of flags from an ADDITIONALFLAGS column.
+    The built in lower-case flags are ignored.
+    """
+    BUILTINS = [ "aco", "adopter", "banned", "coordinator", "dangerous", "deceased", "donor", "driver", 
+        "excludefrombulkemail", "fosterer", "giftaid", "homechecked", "homechecker", "member", "padopter", 
+        "retailer", "shelter", "staff", "sponsor", "vet", "volunteer", 
+        "courtesy", "crueltycase", "nonshelter", "notforadoption", "notforregistration", "quarantine" ]
+    if flags is None or flags == "" or flags == "|": return dbflags
+    out = dbflags.copy()
+    for f in flags.split("|"):
+        f = f.strip()
+        if f == "": continue
+        if f in BUILTINS: continue
+        match = False
+        for r in dbflags:
+            if r.FLAG == f: match = True
+        if not match:
+            out.append({ "FLAG": f, "ISRETIRED": 0 })
+    return out
+
+def get_animal_flags(dbo: Database, flags: str = "") -> Results:
+    dbflags = dbo.query("SELECT * FROM lkanimalflags WHERE IsRetired=0 ORDER BY Flag")
+    return _merge_db_flags(dbflags, flags)
 
 def get_animal_types(dbo: Database) -> Results:
     return dbo.query("SELECT * FROM animaltype ORDER BY AnimalType")
@@ -924,6 +845,9 @@ def get_breeds_by_species(dbo: Database) -> Results:
     return dbo.query("SELECT breed.*, species.SpeciesName FROM breed " \
         "LEFT OUTER JOIN species ON breed.SpeciesID = species.ID " \
         "ORDER BY species.SpeciesName, breed.BreedName")
+
+def get_clinic_types(dbo: Database) -> Results:
+    return dbo.query("SELECT * FROM lkclinictype ORDER BY ClinicTypeName")
 
 def get_species_for_breed(dbo: Database, bid: int) -> int:
     return dbo.query_int("SELECT SpeciesID FROM breed WHERE ID=?", [bid])
@@ -977,6 +901,9 @@ def get_entryreasons(dbo: Database) -> Results:
 def get_entryreason_name(dbo: Database, rid: int) -> str:
     if rid is None: return ""
     return dbo.query_string("SELECT ReasonName FROM entryreason WHERE ID = ?", [rid])
+
+def get_entry_types(dbo: Database) -> Results:
+    return dbo.query("SELECT * FROM lksentrytype ORDER BY EntryTypeName")
 
 def get_incident_completed_types(dbo: Database) -> Results:
     return dbo.query("SELECT * FROM incidentcompleted ORDER BY CompletedName")
@@ -1136,7 +1063,8 @@ def insert_lookup(dbo: Database, username: str, lookup: str, name: str, desc: st
         name = name.replace(",", " ").replace("|", " ").replace("'", " ") # Remove bad chars
         name = asm3.utils.strip_duplicate_spaces(name) # Strip dup spaces Bad   Flag->Bad Flag
         return dbo.insert(lookup, {
-            t[LOOKUP_NAMEFIELD]:    name
+            t[LOOKUP_NAMEFIELD]:    name,
+            "IsRetired":            retired
         }, username, setCreated=False)
     elif t[LOOKUP_DESCFIELD] == "":
         # No description
@@ -1222,7 +1150,7 @@ def update_lookup(dbo: Database, username: str, iid: int, lookup: str, name: str
         oldflag = dbo.query_string("SELECT Flag FROM %s WHERE ID = ?" % lookup, [iid])
         newflag = name.replace(",", " ").replace("|", " ").replace("'", " ") # Remove bad chars
         newflag = asm3.utils.strip_duplicate_spaces(newflag) # Strip dup spaces Bad   Flag->Bad Flag
-        dbo.update(lookup, iid, { t[LOOKUP_NAMEFIELD]: newflag }, username, setLastChanged=False)
+        dbo.update(lookup, iid, { t[LOOKUP_NAMEFIELD]: newflag, "IsRetired": retired }, username, setLastChanged=False)
         # Update the text in flags fields where appropriate
         if lookup == "lkownerflags":
             dbo.execute("UPDATE owner SET AdditionalFlags = %s WHERE AdditionalFlags LIKE ?" % dbo.sql_replace("AdditionalFlags"), (oldflag, newflag, "%%%s%%" % oldflag))
@@ -1262,16 +1190,49 @@ def get_microchip_manufacturer(l: str, chipno: str) -> str:
     """
     mf = None
     if chipno is None or chipno == "": return ""
-    for m in MICROCHIP_MANUFACTURERS:
-        if len(chipno) == m["length"] and re.compile(m["regex"]).match(chipno):
-            if m["locales"] == "" or l in m["locales"].split(" "):
-                mf = m["name"]
+    for prefix in get_microchip_prefixes():
+        if len(chipno) == prefix["length"] and re.compile(prefix["regex"]).match(chipno):
+            if prefix["locales"] == "" or l in prefix["locales"].split(" "):
+                mf = prefix["name"]
                 break
     if mf is None and (len(chipno) != 9 and len(chipno) != 10 and len(chipno) != 15):
         return _("Invalid microchip number length", l)
     if mf is None:
         return _("Unknown microchip brand", l)
     return mf
+
+def get_microchip_prefixes() -> List[Dict[str, str]]:
+    """ Returns the chipprefixes.txt file from the server as a dictionary with elements length, regex, name, locale.
+        This file is in the format:
+        LENGTH | REGEX | NAME | LOCALES 
+        Whitespace between the pipes will be suppressed. The locales element is optional,
+        with an empty string making the prefix applied to all locales.
+        Eg: 
+        15 | ^956     | AVID | en en_US
+        15 | ^98102   | DataMARS
+    """
+    try:
+        CACHE_TTL = 86400
+        s = asm3.cachedisk.get("chipprefixes", "chipprefixes")
+        if s is None:
+            s = asm3.utils.get_url(URL_MICROCHIP_PREFIXES)["response"]
+            if not URL_MICROCHIP_PREFIXES.startswith("file:"):
+                asm3.cachedisk.put("chipprefixes", "chipprefixes", s, CACHE_TTL)
+        asm3.al.debug("read chipprefixes.txt (%s bytes)" % len(s), "lookups.get_microchip_prefixes")
+        prefixes = []
+        for p in s.split("\n"):
+            if p.startswith("#"): continue
+            m = p.split("|")
+            if len(m) < 3: continue
+            clen = m[0].strip()
+            cregex = m[1].strip()
+            cname = m[2].strip()
+            clocale = ""
+            if len(m) == 4: clocale = m[3].strip()
+            prefixes.append( { "length": asm3.utils.cint(clen), "regex": cregex, "name": cname, "locales": clocale  })
+        return prefixes
+    except Exception as err:
+        asm3.al.error("Failed reading chipprefixes.txt: %s" % err, "lookups.get_microchip_prefixes")
 
 def get_movementtype_name(dbo: Database, mid: int) -> str:
     if mid is None: return ""
@@ -1287,8 +1248,9 @@ def get_paymentmethod_name(dbo: Database, pid: int) -> str:
 def get_payment_methods(dbo: Database) -> Results:
     return dbo.query("SELECT * FROM donationpayment ORDER BY PaymentName")
 
-def get_person_flags(dbo: Database) -> Results:
-    return dbo.query("SELECT * FROM lkownerflags ORDER BY Flag")
+def get_person_flags(dbo: Database, flags: str = "") -> Results:
+    dbflags = dbo.query("SELECT * FROM lkownerflags WHERE IsRetired=0 ORDER BY Flag")
+    return _merge_db_flags(dbflags, flags)
 
 def get_pickup_locations(dbo: Database) -> Results:
     return dbo.query("SELECT * FROM pickuplocation ORDER BY LocationName")
@@ -1380,6 +1342,9 @@ def get_vaccination_types(dbo: Database) -> Results:
 
 def get_voucher_types(dbo: Database) -> Results:
     return dbo.query("SELECT * FROM voucher ORDER BY VoucherName")
+
+def get_waitinglist_removals(dbo: Database) -> Results:
+    return dbo.query("SELECT * FROM lkwaitinglistremoval ORDER BY RemovalName")
 
 def get_work_types(dbo: Database) -> Results:
     return dbo.query("SELECT * FROM lkworktype ORDER BY WorkType")

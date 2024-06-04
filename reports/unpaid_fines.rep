@@ -2,14 +2,14 @@ Unpaid fines
 ###
 Animal Control
 ###
-33307/Any rev01
+33307/Any rev03
 ###
 All unpaid fines with totals
 ###
 en
 ###
 SELECT
-oc.CitationDate, ct.CitationName, o.OwnerName,
+oc.CitationDate, ct.CitationName, o.OwnerName, o.ID AS OID,
 oc.FineDueDate, oc.FinePaidDate, oc.FineAmount
 FROM ownercitation oc
 INNER JOIN citationtype ct ON ct.ID = oc.CitationTypeID
@@ -24,6 +24,7 @@ $$GROUP_CitationName
 $$HEAD
 <h2>$CITATIONNAME</h2>
 <table border="1">
+<thead>
 <tr>
 <th>Date</th>
 <th>Person</th>
@@ -31,6 +32,8 @@ $$HEAD
 <th>Due</th>
 <th>Paid</th>
 </tr>
+</thead>
+<tbody>
 $$FOOT
 <tr>
 <td></td>
@@ -39,6 +42,7 @@ $$FOOT
 <td></td>
 <td></td>
 </tr>
+</tbody>
 </table>
 <h2>Total $CITATIONNAME: {COUNT.CITATIONNAME}</h2>
 GROUP$$
@@ -46,7 +50,7 @@ GROUP$$
 $$BODY
 <tr>
 <td>$CITATIONDATE</td>
-<td>$OWNERNAME</td>
+<td><a target="_blank" href="person_citations?id=$OID">$OWNERNAME</a></td>
 <td>$FINEAMOUNT</td>
 <td>$FINEDUEDATE</td>
 <td>$FINEPAIDDATE</td>

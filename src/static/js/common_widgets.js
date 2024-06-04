@@ -872,6 +872,13 @@ $.widget("asm.emailform", {
             '<td><label for="em-attachments">' + _("Attachments") + '</label></td>',
             '<td><span id="em-attachments" data="attachments" type="text" class="strong"></span></td>',
             '</tr>',
+            '<tr id="em-docreporow">',
+            '<td><label for="em-docrepo">' + _("Document Repository") + '</label></td>',
+            '<td>',
+            '<select id="em-docrepo" data="docrepo" multiple="multiple" class="asm-bsmselect" title="' + _("Select") + '">',
+            '</select>',
+            '</td>',
+            '</tr>',
             '<tr>',
             '<td></td>',
             '<td><input id="em-addtolog" data="addtolog" type="checkbox"',
@@ -892,6 +899,15 @@ $.widget("asm.emailform", {
             '</div>'
         ].join("\n"));
         $("#em-body").richtextarea();
+        $("#em-docrepo").asmSelect({
+            animate: true,
+            sortable: true,
+            removeLabel: '<strong>&times;</strong>',
+            listClass: 'bsmList-custom',  
+            listItemClass: 'bsmListItem-custom',
+            listItemLabelClass: 'bsmListItemLabel-custom',
+            removeClass: 'bsmListItemRemove-custom'
+        });
         let b = {}; 
         b[_("Send")] = {
             text: _("Send"),
@@ -929,12 +945,14 @@ $.widget("asm.emailform", {
             let o = self.options.o;
             let formdata = "mode=emailtemplate&dtid=" + $("#em-template").val();
             if (o.animalcontrolid) { formdata += "&animalcontrolid=" + o.animalcontrolid; }
+            if (o.licenceid) { formdata += "&licenceid=" + o.licenceid; }
             if (o.donationids) { formdata += "&donationids=" + o.donationids; }
             if (o.personid) { formdata += "&personid=" + o.personid; }
             if (o.animalid) { formdata += "&animalid=" + o.animalid; }
             header.show_loading(_("Loading..."));
             common.ajax_post("document_gen", formdata, function(response) {
                 let j = jQuery.parseJSON(response);
+                if (j.TO) { $("#em-to").val(j.TO); }
                 if (j.SUBJECT) { $("#em-subject").val(j.SUBJECT); }
                 if (j.FROM) { $("#em-from").val(j.FROM); }
                 if (j.CC) { $("#em-cc").val(j.CC); }
@@ -988,12 +1006,19 @@ $.widget("asm.emailform", {
         let conf_org = html.decode(config.str("Organisation").replace(",", ""));
         let conf_email = config.str("EmailAddress");
         let org_email = conf_org + " <" + conf_email + ">";
+        let bcc_email = config.str("EmailBCC");
         $("#em-from").val(conf_email);
         fromaddresses.push(conf_email);
         fromaddresses.push(org_email);
         if (asm.useremail) {
             fromaddresses.push(asm.useremail);
             fromaddresses.push(html.decode(asm.userreal) + " <" + asm.useremail + ">");
+            if (config.bool(asm.user + "_EmailDefault")) {
+                $("#em-from").val(asm.useremail);
+            }
+        }
+        if (bcc_email) {
+            $("#em-bcc").val(bcc_email);
         }
         if (o.toaddresses) {
             toaddresses = toaddresses.concat(o.toaddresses);
@@ -1004,6 +1029,14 @@ $.widget("asm.emailform", {
         }
         else {
             $("#em-attachmentrow").hide();
+        }
+        if (o.documentrepository) {
+            $("#em-docrepo").html(html.list_to_options(o.documentrepository, "ID", "NAME"));
+            $("#em-docrepo").change();
+            $("#em-docreporow").show();
+        }
+        else {
+            $("#em-docreporow").hide();
         }
         fromaddresses = fromaddresses.concat(config.str("EmailFromAddresses").split(","));
         toaddresses = toaddresses.concat(config.str("EmailToAddresses").split(","));

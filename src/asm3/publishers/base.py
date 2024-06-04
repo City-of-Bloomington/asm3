@@ -11,7 +11,7 @@ import asm3.movement
 import asm3.utils
 import asm3.wordprocessor
 from asm3.sitedefs import SERVICE_URL, FTP_CONNECTION_TIMEOUT
-from asm3.typehints import Any, datetime, Database, List, ResultRow, Results
+from asm3.typehints import Any, datetime, Database, Dict, List, ResultRow, Results
 
 import ftplib
 import glob
@@ -643,6 +643,12 @@ class AbstractPublisher(threading.Thread):
             # Add quoting
             l.append("\"%s\"" % i)
         return ",".join(l)
+    
+    def getPhotoUrl(self, animalid: int) -> str:
+        """
+        Returns the URL for the preferred photo for animalid.
+        """
+        return f"{SERVICE_URL}?account={self.dbo.database}&method=animal_image&animalid={animalid}"
 
     def getPhotoUrls(self, animalid: int) -> List[str]:
         """
@@ -654,7 +660,8 @@ class AbstractPublisher(threading.Thread):
             "AND (ExcludeFromPublish = 0 OR ExcludeFromPublish Is Null) " \
             "ORDER BY WebsitePhoto DESC, ID", [animalid])
         for m in photos:
-            photo_urls.append("%s?account=%s&method=media_image&mediaid=%s&ts=%s" % (SERVICE_URL, self.dbo.database, m.ID, asm3.i18n.python2unix(m.DATE)))
+            ts = asm3.i18n.python2unix(m.DATE)
+            photo_urls.append(f"{SERVICE_URL}?account={self.dbo.database}&method=media_image&mediaid={m.ID}&ts={ts}")
         return photo_urls
 
     def getPublisherBreed(self, an: ResultRow, b1or2: int = 1) -> str:
@@ -723,7 +730,7 @@ class AbstractPublisher(threading.Thread):
         Replace any $$Tag$$ tags in s, using animal a
         """
         tags = asm3.wordprocessor.animal_tags_publisher(self.dbo, a)
-        return asm3.wordprocessor.substitute_tags(s, tags, True, "$$", "$$", crToBr = False)
+        return asm3.wordprocessor.substitute_tags(s, tags, True, "$$", "$$", cr_to_br = False)
 
     def resetPublisherProgress(self) -> None:
         """
@@ -774,6 +781,23 @@ class AbstractPublisher(threading.Thread):
         if save_log: self.saveLog()
         self.setPublisherComplete()
 
+    def splitAddress(self, address: str) -> Dict[str, str]:
+        """
+        Splits the OWNERADDRESS column and returns a dict of address elements.
+        """
+        o = { "houseno": "", "streetname": "", "line1": "", "line2": "", "csv": ""}
+        if address is None: address = ""
+        address = address.strip()
+        o["csv"] = address.replace("\n", ", ")
+        b = address.split("\n")
+        if len(b) > 0: o["line1"] = b[0]
+        if len(b) > 1: o["line2"] = b[1]
+        b = o["line1"].split(" ", 1)
+        if len(b) == 2 and asm3.utils.is_numeric(b[0]):
+            o["houseno"] = b[0]
+            o["streetname"] = b[1]
+        return o
+
     def makePublishDirectory(self) -> None:
         """
         Creates a temporary publish directory if one isn't set, or uses
@@ -818,25 +842,25 @@ class AbstractPublisher(threading.Thread):
         Replaces well known "smart" quotes/points with ASCII characters (mainly aimed at smartquotes)
         """
         ENTITIES = {
-            "\u00b4":  "'", # spacing acute
-            "\u2013": "-", # endash
+            "\u00b4": "'",  # spacing acute
+            "\u2013": "-",  # endash
             "\u2014": "--", # emdash
-            "\u2018": "'", # left single quote
-            "\u2019": "'", # right single quote
-            "\u201a": ",", # single low quote (comma)
+            "\u2018": "'",  # left single quote
+            "\u2019": "'",  # right single quote
+            "\u201a": ",",  # single low quote (comma)
             "\u201c": "\"", # left double quotes
             "\u201d": "\"", # right double quotes
             "\u201e": ",,", # double low quote (comma comma)
-            "\u2022": "*", # bullet
-            "\u2026": "...", # ellipsis
-            "\u2032": "'", # prime (stopwatch)
+            "\u2022": "*",  # bullet
+            "\u2026": "...",# ellipsis
+            "\u2032": "'",  # prime (stopwatch)
             "\u2033": "\"", # double prime,
-            "\u2713": "/", # check
-            "\u2714": "/", # heavy check
-            "\u2715": "x", # multiplication x
-            "\u2716": "x", # heavy multiplication x
-            "\u2717": "x", # ballot x
-            "\u2718": "x"  # heavy ballot x
+            "\u2713": "/",  # check
+            "\u2714": "/",  # heavy check
+            "\u2715": "x",  # multiplication x
+            "\u2716": "x",  # heavy multiplication x
+            "\u2717": "x",  # ballot x
+            "\u2718": "x"   # heavy ballot x
         }
         for k, v in ENTITIES.items():
             s = s.replace(k, v)
@@ -890,8 +914,8 @@ class AbstractPublisher(threading.Thread):
         # Smart quotes and apostrophes
         if replaceSmart:
             notes = self.replaceSmartQuotes(notes)
-        # Escape speechmarks
-        notes = notes.replace("\"", "\"\"")
+        # Escape speechmarks - disabled 27/12/2023, why were we doing this? Where is a double double-quote the escape method?
+        # notes = notes.replace("\"", "\"\"")
         return notes
 
     def getLastPublishedDate(self, animalid: int) -> datetime:
@@ -998,6 +1022,13 @@ class AbstractPublisher(threading.Thread):
         a = get_animal_data(self.dbo, self.pc, include_additional_fields=includeAdditionalFields, publisher_key=self.publisherKey)
         self.log("Got %d matching animals for publishing." % len(a))
         return a
+    
+    def isCrossBreed(self, a: ResultRow) -> bool:
+        """ Returns True if the animal a is a crossbreed. """
+        cross = a.CROSSBREED == 0
+        if a.BREEDID in asm3.configuration.publish_as_crossbreed(self.dbo):
+            cross = True
+        return cross
 
     def saveFile(self, path: str, contents: str) -> None:
         try:
@@ -1120,8 +1151,8 @@ class FTPPublisher(AbstractPublisher):
                  ftphost: str, ftpuser: str, ftppassword: str, ftptls: bool = False, 
                  ftpport: int = 21, ftproot: str = "", passive: bool = True) -> None:
         AbstractPublisher.__init__(self, dbo, publishCriteria)
-        self.ftphost = ftphost
-        self.ftpuser = ftpuser
+        self.ftphost = ftphost.strip()
+        self.ftpuser = ftpuser.strip()
         self.ftppassword = self.unxssPass(ftppassword)
         self.ftpport = ftpport
         self.ftproot = ftproot
@@ -1148,7 +1179,7 @@ class FTPPublisher(AbstractPublisher):
         uploading is disabled.
         """
         if not self.pc.uploadDirectly: return True
-        if self.ftphost.strip() == "": raise ValueError("No FTP host set")
+        if self.ftphost == "": raise ValueError("No FTP host set")
         self.log("Connecting to %s as %s" % (self.ftphost, self.ftpuser))
         
         try:

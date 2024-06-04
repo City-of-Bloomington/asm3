@@ -92,11 +92,11 @@ class PETtracUKPublisher(AbstractPublisher):
             self.setLastError("authorised user '%s' does not have an electronic signature on file" % authuser)
             return
 
-        chipprefix = "977%" # AVID Europe
+        chipprefix = ["977%"] # AVID Europe
         if registeroverseas: 
-            chipprefix = "a.IdentichipNumber LIKE '%'" # If overseas registration is on, send all chips to AVID
+            chipprefix = ["0","1","2","3","4","5","6","7","8","9"] # If overseas registration is on, send all chips to AVID
 
-        animals = get_microchip_data(self.dbo, [chipprefix,], "pettracuk", allowintake = False or registeroverseas)
+        animals = get_microchip_data(self.dbo, chipprefix, "pettracuk", allowintake = False or registeroverseas)
         if len(animals) == 0:
             self.setLastError("No animals found to publish.")
             return
@@ -185,6 +185,8 @@ class PETtracUKPublisher(AbstractPublisher):
         elif species.find("Reptile") != -1: species = "Reptilian"
         else: species = "Other"
 
+        address = self.splitAddress(an.CURRENTOWNERADDRESS)
+
         # Build the animal POST data
         fields = {
             "orgpostcode": orgpostcode,
@@ -197,7 +199,7 @@ class PETtracUKPublisher(AbstractPublisher):
             "prefix": an["CURRENTOWNERTITLE"],
             "surname": an["CURRENTOWNERSURNAME"],
             "firstname": an["CURRENTOWNERFORENAMES"],
-            "address1": an["CURRENTOWNERADDRESS"],
+            "address1": address["line1"],
             "city": an["CURRENTOWNERTOWN"],
             "county": an["CURRENTOWNERCOUNTY"],
             "postcode": an["CURRENTOWNERPOSTCODE"],

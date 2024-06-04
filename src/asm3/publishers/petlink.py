@@ -63,7 +63,11 @@ class PetLinkPublisher(AbstractPublisher):
             self.setLastError("No PetLink login has been set.")
             return
 
-        animals = get_microchip_data(self.dbo, ['98102',], "petlink", organisation_email = plowneremail)
+        chipprefix = ["98102"]
+        if asm3.configuration.petlink_register_all(self.dbo):
+            chipprefix = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
+
+        animals = get_microchip_data(self.dbo, chipprefix, "petlink", organisation_email = plowneremail)
         if len(animals) == 0:
             self.setLastError("No animals found to publish.")
             return
@@ -228,8 +232,7 @@ class PetLinkPublisher(AbstractPublisher):
         homephone = asm3.utils.nulltostr(an.CURRENTOWNERHOMETELEPHONE).strip()
         workphone = asm3.utils.nulltostr(an.CURRENTOWNERWORKTELEPHONE).strip()
         mobilephone = asm3.utils.nulltostr(an.CURRENTOWNERMOBILETELEPHONE).strip()
-        address = asm3.utils.nulltostr(an.CURRENTOWNERADDRESS).strip()
-        address = address.replace("\n", " ") # petlink have issues with quoted line breaks in CSV files
+        address = self.splitAddress(an.CURRENTOWNERADDRESS)
 
         # Get the non-blank phone number and strip it of non-numeric data
         phone = homephone or mobilephone or workphone
@@ -259,7 +262,7 @@ class PetLinkPublisher(AbstractPublisher):
         # LastName
         line.append(an.CURRENTOWNERSURNAME)
         # Address
-        line.append(address)
+        line.append(address["csv"])
         # City
         line.append(an.CURRENTOWNERTOWN)
         # State
@@ -302,7 +305,7 @@ class PetLinkPublisher(AbstractPublisher):
             cutoffdays: Negative number of days to check against service date
         """
         # If the microchip number isn't 15 digits, skip it
-        if len(an.IDENTICHIPNUMBER.strip()) != 15:
+        if not asm3.configuration.petlink_register_all(self.dbo) and len(an.IDENTICHIPNUMBER.strip()) != 15:
             self.logError("Chip number failed validation (%s not 15 digits), skipping." % an.IDENTICHIPNUMBER)
             return VALIDATE_NO
 

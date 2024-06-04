@@ -43,7 +43,8 @@ VERSIONS = (
     34409, 34410, 34411, 34500, 34501, 34502, 34503, 34504, 34505, 34506, 34507,
     34508, 34509, 34510, 34511, 34512, 34600, 34601, 34602, 34603, 34604, 34605,
     34606, 34607, 34608, 34609, 34611, 34700, 34701, 34702, 34703, 34704, 34705,
-    34706, 34707, 34708, 34709, 34800
+    34706, 34707, 34708, 34709, 34800, 34801, 34802, 34803, 34804, 34805, 34806,
+    34807, 34808, 34809, 34810, 34811, 34812, 34813, 34900
 )
 
 LATEST_VERSION = VERSIONS[-1]
@@ -52,18 +53,18 @@ LATEST_VERSION = VERSIONS[-1]
 TABLES = ( "accounts", "accountsrole", "accountstrx", "additional", "additionalfield",
     "adoption", "animal", "animalboarding", "animalcontrol", "animalcontrolanimal", "animalcontrolrole", "animalcost",
     "animaldiet", "animalentry", "animalfigures", "animalfiguresannual",  
-    "animalfound", "animalcontrolanimal", "animallitter", "animallost", "animallostfoundmatch", 
+    "animalfound", "animalcontrolanimal", "animallitter", "animallocation", "animallost", "animallostfoundmatch", 
     "animalmedical", "animalmedicaltreatment", "animalname", "animalpublished", 
     "animaltype", "animaltest", "animaltransport", "animalvaccination", "animalwaitinglist", "audittrail", 
     "basecolour", "breed", "citationtype", "clinicappointment", "clinicinvoiceitem", "configuration", 
     "costtype", "customreport", "customreportrole", "dbfs", "deathreason", "deletion", "diary", 
     "diarytaskdetail", "diarytaskhead", "diet", "donationpayment", "donationtype", 
     "entryreason", "event", "eventanimal", "incidentcompleted", "incidenttype", "internallocation", 
-    "jurisdiction", "licencetype", "lkanimalflags", "lkboardingtype", "lkcoattype",
-    "lkownerflags", "lksaccounttype", "lksclinicstatus", "lksdiarylink", "lksdonationfreq", "lksex", 
-    "lksfieldlink", "lksfieldtype", "lksize", "lksloglink", "lksmedialink", "lksmediatype", "lksmovementtype", 
-    "lksoutcome", "lksposneg", "lksrotatype", 
-    "lksyesno", "lksynun", "lksynunk", "lkstransportstatus", "lkurgency", "lkworktype", 
+    "jurisdiction", "licencetype", "lkanimalflags", "lkboardingtype", "lkclinictype", "lkcoattype",
+    "lkownerflags", "lksaccounttype", "lksclinicstatus", "lksdiarylink", "lksdonationfreq", "lksentrytype",
+    "lksex", "lksfieldlink", "lksfieldtype", "lksize", "lksloglink", "lksmedialink", "lksmediatype", "lksmovementtype", 
+    "lksoutcome", "lksposneg", "lksrotatype", "lksyesno", "lksynun", "lksynunk", "lkstransportstatus", "lkurgency", 
+    "lkwaitinglistremoval", "lkworktype", 
     "log", "logtype", "media", "medicalprofile", "messages", "onlineform", 
     "onlineformfield", "onlineformincoming", "owner", "ownercitation", "ownerdonation", "ownerinvestigation", 
     "ownerlicence", "ownerlookingfor", "ownerrota", "ownertraploan", "ownervoucher", "pickuplocation", "publishlog", 
@@ -94,7 +95,7 @@ TABLES_NO_ID_COLUMN = ( "accountsrole", "additional", "audittrail", "animalcontr
 # to determine which tables to delete data from
 TABLES_DATA = ( "accountsrole", "accountstrx", "additional", "adoption", 
     "animal", "animalboarding", "animalcontrol", "animalcontrolanimal","animalcontrolrole", 
-    "animallostfoundmatch", "animalpublished", 
+    "animallocation", "animallostfoundmatch", "animalpublished", 
     "animalcost", "animaldiet", "animalentry", "animalfigures", "animalfiguresannual", 
     "animalfound", "animallitter", "animallost", "animalmedical", "animalmedicaltreatment", "animalname",
     "animaltest", "animaltransport", "animalvaccination", "animalwaitinglist", "audittrail", 
@@ -107,12 +108,13 @@ TABLES_DATA = ( "accountsrole", "accountstrx", "additional", "adoption",
 TABLES_LOOKUP = ( "accounts", "additionalfield", "animaltype", "basecolour", "breed", "citationtype", 
     "costtype", "deathreason", "diarytaskdetail", "diarytaskhead", "diet", "donationpayment", 
     "donationtype", "entryreason", "incidentcompleted", "incidenttype", "internallocation", "jurisdiction", 
-    "licencetype", "lkanimalflags", "lkboardingtype", "lkcoattype", "lkownerflags", "lksaccounttype", "lksclinicstatus", 
-    "lksdiarylink", "lksdonationfreq", "lksex", "lksfieldlink", "lksfieldtype", "lksize", "lksloglink", 
-    "lksmedialink", "lksmediatype", "lksmovementtype", "lksoutcome", "lksposneg", "lksrotatype", "lksyesno", 
-    "lksynun", "lksynunk", "lkstransportstatus", "lkurgency", "lkworktype", "logtype", "medicalprofile", 
-    "onlineform", "onlineformfield", "pickuplocation", "reservationstatus", "site", "stocklocation", 
-    "stockusagetype", "species", "templatedocument", "templatehtml", "testtype", "testresult", 
+    "licencetype", "lkanimalflags", "lkboardingtype", "lkclinictype", "lkcoattype", "lkownerflags", 
+    "lksaccounttype", "lksclinicstatus", "lksdiarylink", "lksdonationfreq", "lksentrytype", "lksex", "lksfieldlink", 
+    "lksfieldtype", "lksize", "lksloglink", "lksmedialink", "lksmediatype", "lksmovementtype", "lksoutcome", 
+    "lksposneg", "lksrotatype", "lksyesno", "lksynun", "lksynunk", "lkstransportstatus", "lkurgency", 
+    "lkwaitinglistremoval", "lkworktype", 
+    "logtype", "medicalprofile", "onlineform", "onlineformfield", "pickuplocation", "reservationstatus", "site", 
+    "stocklocation", "stockusagetype", "species", "templatedocument", "templatehtml", "testtype", "testresult", 
     "transporttype", "traptype", "vaccinationtype", "voucher" )
 
 VIEWS = ( "v_adoption", "v_animal", "v_animalcontrol", "v_animalfound", "v_animallost", 
@@ -317,6 +319,7 @@ def sql_structure(dbo: Database) -> str:
         flongstr("ReasonForEntry"),
         flongstr("ReasonNO"),
         fdate("DateBroughtIn"),
+        fint("EntryTypeID", True),
         fint("EntryReasonID"),
         fint("AsilomarIsTransferExternal", True),
         fint("AsilomarIntakeCategory", True),
@@ -331,7 +334,7 @@ def sql_structure(dbo: Database) -> str:
         fint("PTSReasonID"),
         fint("IsCourtesy", True),
         fint("IsDOA"),
-        fint("IsTransfer"),
+        fint("IsTransfer"), # ASM2_COMPATIBILITY
         fint("IsGoodWithCats"),
         fint("IsGoodWithDogs"),
         fint("IsGoodWithChildren"),
@@ -397,6 +400,7 @@ def sql_structure(dbo: Database) -> str:
     sql += index("animal_DeceasedDate", "animal", "DeceasedDate")
     sql += index("animal_DiedOffShelter", "animal", "DiedOffShelter")
     sql += index("animal_EntryReasonID", "animal", "EntryReasonID")
+    sql += index("animal_EntryTypeID", "animal", "EntryTypeID")
     sql += index("animal_IdentichipNumber", "animal", "IdentichipNumber")
     sql += index("animal_Identichip2Number", "animal", "Identichip2Number")
     sql += index("animal_JurisdictionID", "animal", "JurisdictionID")
@@ -442,6 +446,7 @@ def sql_structure(dbo: Database) -> str:
 
     sql += table("animalcontrol", (
         fid(),
+        fstr("IncidentCode", True),
         fdate("IncidentDateTime"),
         fint("IncidentTypeID"),
         fdate("CallDateTime", True),
@@ -476,6 +481,7 @@ def sql_structure(dbo: Database) -> str:
         fint("SpeciesID", True),
         fint("Sex", True),
         fstr("AgeGroup", True) ))
+    sql += index("animalcontrol_IncidentCode", "animalcontrol", "IncidentCode")
     sql += index("animalcontrol_IncidentDateTime", "animalcontrol", "IncidentDateTime")
     sql += index("animalcontrol_IncidentTypeID", "animalcontrol", "IncidentTypeID")
     sql += index("animalcontrol_CallDateTime", "animalcontrol", "CallDateTime")
@@ -541,6 +547,7 @@ def sql_structure(dbo: Database) -> str:
         fstr("ShelterCode"),
         fstr("ShortCode"),
         fdate("EntryDate"),
+        fint("EntryTypeID"),
         fint("EntryReasonID"),
         fint("AdoptionCoordinatorID", True),
         fint("BroughtInByOwnerID", True),
@@ -629,6 +636,20 @@ def sql_structure(dbo: Database) -> str:
         fdate("InvalidDate", True),
         fint("NumberInLitter"),
         flongstr("Comments")), True, True)
+    
+    sql += table("animallocation", (
+        fid(),
+        fint("AnimalID"),
+        fdate("Date"),
+        fint("FromLocationID"),
+        fstr("FromUnit"), 
+        fint("ToLocationID"),
+        fstr("ToUnit"), 
+        fstr("MovedBy"),
+        fstr("Description")), False)
+    sql += index("animallocation_AnimalID", "animallocation", "AnimalID")
+    sql += index("animallocation_FromLocationID", "animallocation", "FromLocationID")
+    sql += index("animallocation_ToLocationID", "animallocation", "ToLocationID")
 
     sql += table("animallost", (
         fid(),
@@ -824,14 +845,21 @@ def sql_structure(dbo: Database) -> str:
     sql += table("animalwaitinglist", (
         fid(),
         fint("SpeciesID"),
+        fint("BreedID", True),
+        fint("Neutered", True),
+        fint("Sex", True),
         fint("Size", True),
+        fdate("DateOfBirth", True),
         fdate("DatePutOnList"),
         fint("OwnerID"),
+        fstr("AnimalName", True),
         flongstr("AnimalDescription"),
+        fstr("MicrochipNumber", True),
         flongstr("ReasonForWantingToPart"),
         fint("CanAffordDonation"),
         fint("Urgency"),
         fdate("DateRemovedFromList", True),
+        fint("WaitingListRemovalID", True),
         fint("AutoRemovePolicy"),
         fdate("DateOfLastOwnerContact", True),
         flongstr("ReasonForRemoval"),
@@ -839,6 +867,8 @@ def sql_structure(dbo: Database) -> str:
         fdate("UrgencyUpdateDate", True),
         fdate("UrgencyLastUpdatedDate", True) ))
     sql += index("animalwaitinglist_AnimalDescription", "animalwaitinglist", "AnimalDescription", partial = True)
+    sql += index("animalwaitinglist_AnimalName", "animalwaitinglist", "AnimalName")
+    sql += index("animalwaitinglist_MicrochipNumber", "animalwaitinglist", "MicrochipNumber")
     sql += index("animalwaitinglist_OwnerID", "animalwaitinglist", "OwnerID")
     sql += index("animalwaitinglist_SpeciesID", "animalwaitinglist", "SpeciesID")
     sql += index("animalwaitinglist_Size", "animalwaitinglist", "Size")
@@ -892,6 +922,7 @@ def sql_structure(dbo: Database) -> str:
         fdate("ArrivedDateTime", True),
         fdate("WithVetDateTime", True),
         fdate("CompletedDateTime", True),
+        fint("ClinicTypeID", True),
         flongstr("ReasonForAppointment", True),
         flongstr("Comments", True),
         fint("Amount"),
@@ -902,6 +933,7 @@ def sql_structure(dbo: Database) -> str:
     sql += index("clinicappointment_OwnerID", "clinicappointment", "OwnerID")
     sql += index("clinicappointment_Status", "clinicappointment", "Status")
     sql += index("clinicappointment_ApptFor", "clinicappointment", "ApptFor")
+    sql += index("clinicappointment_ClinicTypeID", "clinicappointment", "ClinicTypeID")
 
     sql += table("clinicinvoiceitem", (
         fid(),
@@ -1091,16 +1123,22 @@ def sql_structure(dbo: Database) -> str:
         fid(), fstr("AccountType") ), False)
 
     sql += table("lkanimalflags", (
-        fid(), fstr("Flag") ), False)
+        fid(), fstr("Flag"), fint("IsRetired", True) ), False)
 
     sql += table("lkownerflags", (
-        fid(), fstr("Flag") ), False)
+        fid(), fstr("Flag"), fint("IsRetired", True) ), False)
 
     sql += table("lkboardingtype", (
         fid(),
         fstr("BoardingName"),
         fstr("BoardingDescription", True),
         fint("DefaultCost", True),
+        fint("IsRetired", True) ), False)
+
+    sql += table("lkclinictype", (
+        fid(),
+        fstr("ClinicTypeName"),
+        fstr("ClinicTypeDescription", True),
         fint("IsRetired", True) ), False)
 
     sql += table("lksclinicstatus", (
@@ -1136,6 +1174,9 @@ def sql_structure(dbo: Database) -> str:
     sql += table("lksdonationfreq", (
         fid(), fstr("Frequency") ), False)
 
+    sql += table("lksentrytype", (
+        fid(), fstr("EntryTypeName") ), False)
+
     sql += table("lksloglink", (
         fid(), fstr("LinkType") ), False)
 
@@ -1163,6 +1204,9 @@ def sql_structure(dbo: Database) -> str:
 
     sql += table("lksposneg", (
         fid(), fstr("Name") ), False)
+
+    sql += table("lkwaitinglistremoval", (
+        fid(), fstr("RemovalName") ), False)
 
     sql += table("lkworktype", (
         fid(), fstr("WorkType"),
@@ -1484,6 +1528,7 @@ def sql_structure(dbo: Database) -> str:
         fint("LicenceFee", True),
         fint("Renewed", True),
         fstr("Token", True),
+        fstr("PaymentReference", True),
         fdate("IssueDate"),
         fdate("ExpiryDate"),
         flongstr("Comments", True) ))
@@ -1493,6 +1538,7 @@ def sql_structure(dbo: Database) -> str:
     sql += index("ownerlicence_LicenceNumber", "ownerlicence", "LicenceNumber")
     sql += index("ownerlicence_Renewed", "ownerlicence", "Renewed")
     sql += index("ownerlicence_Token", "ownerlicence", "Token")
+    sql += index("ownerlicence_PaymentReference", "ownerlicence", "PaymentReference")
     sql += index("ownerlicence_IssueDate", "ownerlicence", "IssueDate")
     sql += index("ownerlicence_ExpiryDate", "ownerlicence", "ExpiryDate")
 
@@ -1535,6 +1581,7 @@ def sql_structure(dbo: Database) -> str:
         fdate("DateIssued"),
         fdate("DateExpired"),
         fdate("DatePresented", True),
+        fint("VetID", True),
         fint("Value"),
         flongstr("Comments", True) ))
     sql += index("ownervoucher_AnimalID", "ownervoucher", "AnimalID")
@@ -1543,6 +1590,7 @@ def sql_structure(dbo: Database) -> str:
     sql += index("ownervoucher_VoucherCode", "ownervoucher", "VoucherCode")
     sql += index("ownervoucher_DateExpired", "ownervoucher", "DateExpired")
     sql += index("ownervoucher_DatePresented", "ownervoucher", "DatePresented")
+    sql += index("ownervoucher_VetID", "ownervoucher", "VetID")
 
     sql += table("pickuplocation", (
         fid(),
@@ -1785,23 +1833,26 @@ def sql_default_data(dbo: Database, skip_config: bool = False) -> str:
     sql += account(3, _("Income::WaitingList", l), _("Waiting list donations", l), 5, 3, 0)
     sql += account(4, _("Income::EntryDonation", l), _("Donations for animals entering the shelter", l), 5, 4, 0)
     sql += account(5, _("Income::Sponsorship", l), _("Sponsorship donations", l), 5, 5, 0)
-    sql += account(6, _("Income::Shop", l), _("Income from an on-site shop", l), 5, 0, 0)
-    sql += account(7, _("Income::Interest", l), _("Bank account interest", l), 5, 0, 0)
-    sql += account(8, _("Income::OpeningBalances", l), _("Opening balances", l), 5, 0, 0)
-    sql += account(9, _("Bank::Current", l), _("Bank current account", l), 1, 0, 0)
-    sql += account(10, _("Bank::Deposit", l), _("Bank deposit account", l), 1, 0, 0)
-    sql += account(11, _("Bank::Savings", l), _("Bank savings account", l), 1, 0, 0)
-    sql += account(12, _("Asset::Premises", l), _("Premises", l), 8, 0, 0)
-    sql += account(13, _("Expenses::Phone", l), _("Telephone Bills", l), 4, 0, 0)
-    sql += account(14, _("Expenses::Electricity", l), _("Electricity Bills", l), 4, 0, 0)
-    sql += account(15, _("Expenses::Water", l), _("Water Bills", l), 4, 0, 0)
-    sql += account(16, _("Expenses::Gas", l), _("Gas Bills", l), 4, 0, 0)
-    sql += account(17, _("Expenses::Postage", l), _("Postage costs", l), 4, 0, 0)
-    sql += account(18, _("Expenses::Stationary", l), _("Stationary costs", l), 4, 0, 0)
-    sql += account(19, _("Expenses::Food", l), _("Animal food costs", l), 4, 0, 0)
-    sql += account(20, _("Expenses::Board", l), _("Animal board costs", l), 4, 0, 1)
-    sql += account(21, _("Expenses::TransactionFee", l), _("Transaction fees", l), 4, 0, 0)
-    sql += account(22, _("Income::SalesTax", l), _("Sales Tax", l), 5, 0, 0)
+    sql += account(7, _("Income::BoardingFee", l), _("Boarding fees", l), 5, 7, 0)
+    sql += account(8, _("Income::InMemoryOf", l), _("In Memory Of donations", l), 5, 8, 0)
+    sql += account(9, _("Income::LicenseFee", l), _("License fees", l), 5, 9, 0)
+    sql += account(10, _("Income::SalesTax", l), _("Sales Tax", l), 5, 0, 0)
+    sql += account(20, _("Income::Shop", l), _("Income from an on-site shop", l), 5, 0, 0)
+    sql += account(21, _("Income::Interest", l), _("Bank account interest", l), 5, 0, 0)
+    sql += account(22, _("Income::OpeningBalances", l), _("Opening balances", l), 5, 0, 0)
+    sql += account(30, _("Bank::Current", l), _("Bank current account", l), 1, 0, 0)
+    sql += account(31, _("Bank::Deposit", l), _("Bank deposit account", l), 1, 0, 0)
+    sql += account(32, _("Bank::Savings", l), _("Bank savings account", l), 1, 0, 0)
+    sql += account(33, _("Asset::Premises", l), _("Premises", l), 8, 0, 0)
+    sql += account(40, _("Expenses::Phone", l), _("Telephone Bills", l), 4, 0, 0)
+    sql += account(41, _("Expenses::Electricity", l), _("Electricity Bills", l), 4, 0, 0)
+    sql += account(42, _("Expenses::Water", l), _("Water Bills", l), 4, 0, 0)
+    sql += account(43, _("Expenses::Gas", l), _("Gas Bills", l), 4, 0, 0)
+    sql += account(44, _("Expenses::Postage", l), _("Postage costs", l), 4, 0, 0)
+    sql += account(45, _("Expenses::Stationary", l), _("Stationary costs", l), 4, 0, 0)
+    sql += account(46, _("Expenses::Food", l), _("Animal food costs", l), 4, 0, 0)
+    sql += account(47, _("Expenses::Board", l), _("Animal board costs", l), 4, 0, 1)
+    sql += account(48, _("Expenses::TransactionFee", l), _("Transaction fees", l), 4, 0, 0)
     sql += lookup2("animaltype", "AnimalType", 2, _("D (Dog)", l))
     sql += lookup2("animaltype", "AnimalType", 10, _("A (Stray Dog)", l))
     sql += lookup2("animaltype", "AnimalType", 11, _("U (Unwanted Cat)", l))
@@ -2286,7 +2337,7 @@ def sql_default_data(dbo: Database, skip_config: bool = False) -> str:
     sql += lookup2("deathreason", "ReasonName", 8, _("Biting", l))
     sql += lookup2("diet", "DietName", 1, _("Standard", l))
     sql += lookup2("donationpayment", "PaymentName", 1, _("Cash", l))
-    sql += lookup2("donationpayment", "PaymentName", 2, _("Cheque", l))
+    sql += lookup2("donationpayment", "PaymentName", 2, _("Check", l))
     sql += lookup2("donationpayment", "PaymentName", 3, _("Credit Card", l))
     sql += lookup2("donationpayment", "PaymentName", 4, _("Debit Card", l))
     sql += lookup2("donationpayment", "PaymentName", 5, _("PayPal", l))
@@ -2297,13 +2348,15 @@ def sql_default_data(dbo: Database, skip_config: bool = False) -> str:
     sql += lookup2moneyaccount("donationtype", "DonationName", 4, _("Entry Donation", l), 4)
     sql += lookup2moneyaccount("donationtype", "DonationName", 5, _("Animal Sponsorship", l), 5)
     sql += lookup2moneyaccount("donationtype", "DonationName", 6, _("In-Kind Donation", l))
-    sql += lookup2moneyaccount("donationtype", "DonationName", 7, _("Boarding Fee", l))
+    sql += lookup2moneyaccount("donationtype", "DonationName", 7, _("Boarding Fee", l), 7)
+    sql += lookup2moneyaccount("donationtype", "DonationName", 8, _("In Memory Of", l), 8)
+    sql += lookup2moneyaccount("donationtype", "DonationName", 9, _("License Fee", l), 9)
     sql += lookup2("entryreason", "ReasonName", 1, _("Marriage/Relationship split", l))
     sql += lookup2("entryreason", "ReasonName", 2, _("Allergies", l))
     sql += lookup2("entryreason", "ReasonName", 3, _("Biting", l))
     sql += lookup2("entryreason", "ReasonName", 4, _("Unable to Cope", l))
     sql += lookup2("entryreason", "ReasonName", 5, _("Unsuitable Accomodation", l))
-    sql += lookup2("entryreason", "ReasonName", 6, _("Died", l))
+    sql += lookup2("entryreason", "ReasonName", 6, _("Death of Owner", l))
     sql += lookup2("entryreason", "ReasonName", 7, _("Stray", l))
     sql += lookup2("entryreason", "ReasonName", 8, _("Sick/Injured", l))
     sql += lookup2("entryreason", "ReasonName", 9, _("Unable to Afford", l))
@@ -2345,6 +2398,10 @@ def sql_default_data(dbo: Database, skip_config: bool = False) -> str:
     sql += lookup1("lksize", "Size", 2, _("Medium", l))
     sql += lookup1("lksize", "Size", 3, _("Small", l))
     sql += lookup2money("lkboardingtype", "BoardingName", 1, _("Boarding", l))
+    sql += lookup2("lkclinictype", "ClinicTypeName", 1, _("Consultation", l))
+    sql += lookup2("lkclinictype", "ClinicTypeName", 2, _("Followup", l))
+    sql += lookup2("lkclinictype", "ClinicTypeName", 3, _("Prescription", l))
+    sql += lookup2("lkclinictype", "ClinicTypeName", 4, _("Surgery", l))
     sql += lookup1("lkcoattype", "CoatType", 0, _("Short", l))
     sql += lookup1("lkcoattype", "CoatType", 1, _("Long", l))
     sql += lookup1("lkcoattype", "CoatType", 2, _("Rough", l))
@@ -2405,6 +2462,16 @@ def sql_default_data(dbo: Database, skip_config: bool = False) -> str:
     sql += lookup1("lksdonationfreq", "Frequency", 4, _("Quarterly", l))
     sql += lookup1("lksdonationfreq", "Frequency", 5, _("Half-Yearly", l))
     sql += lookup1("lksdonationfreq", "Frequency", 6, _("Annually", l))
+    sql += lookup1("lksentrytype", "EntryTypeName", 1, _("Surrender", l))
+    sql += lookup1("lksentrytype", "EntryTypeName", 2, _("Stray", l))
+    sql += lookup1("lksentrytype", "EntryTypeName", 3, _("Transfer In", l))
+    sql += lookup1("lksentrytype", "EntryTypeName", 4, _("TNR", l))
+    sql += lookup1("lksentrytype", "EntryTypeName", 5, _("Born in care", l))
+    sql += lookup1("lksentrytype", "EntryTypeName", 6, _("Wildlife", l))
+    sql += lookup1("lksentrytype", "EntryTypeName", 7, _("Seized", l))
+    sql += lookup1("lksentrytype", "EntryTypeName", 8, _("Abandoned", l))
+    sql += lookup1("lksentrytype", "EntryTypeName", 9, _("Dead on arrival", l))
+    sql += lookup1("lksentrytype", "EntryTypeName", 10, _("Owner requested euthanasia", l))
     sql += lookup1("lksfieldlink", "LinkType", 0, _("Animal - Additional", l))
     sql += lookup1("lksfieldlink", "LinkType", 2, _("Animal - Details", l))
     sql += lookup1("lksfieldlink", "LinkType", 3, _("Animal - Notes", l))
@@ -2449,6 +2516,7 @@ def sql_default_data(dbo: Database, skip_config: bool = False) -> str:
     sql += lookup1("lksfieldtype", "FieldType", 10, _("Time", l))
     sql += lookup1("lksfieldtype", "FieldType", 11, _("Sponsor", l))
     sql += lookup1("lksfieldtype", "FieldType", 12, _("Vet"))
+    sql += lookup1("lksfieldtype", "FieldType", 13, _("Adoption Coordinator"))
     sql += lookup1("lksloglink", "LinkType", 0, _("Animal", l))
     sql += lookup1("lksloglink", "LinkType", 1, _("Owner", l))
     sql += lookup1("lksloglink", "LinkType", 2, _("Lost Animal", l))
@@ -2505,6 +2573,10 @@ def sql_default_data(dbo: Database, skip_config: bool = False) -> str:
     sql += lookup1("lkurgency", "Urgency", 3, _("Medium", l))
     sql += lookup1("lkurgency", "Urgency", 4, _("Low", l))
     sql += lookup1("lkurgency", "Urgency", 5, _("Lowest", l))
+    sql += lookup1("lkwaitinglistremoval", "RemovalName", 1, _("Entered shelter", l))
+    sql += lookup1("lkwaitinglistremoval", "RemovalName", 2, _("Owner kept", l))
+    sql += lookup1("lkwaitinglistremoval", "RemovalName", 3, _("Owner took to another shelter", l))
+    sql += lookup1("lkwaitinglistremoval", "RemovalName", 4, _("Unknown", l))
     sql += lookup1("lkworktype", "WorkType", 1, _("General", l))
     sql += lookup1("lkworktype", "WorkType", 2, _("Kennel", l))
     sql += lookup1("lkworktype", "WorkType", 3, _("Cattery", l))
@@ -3730,7 +3802,7 @@ def update_3214(dbo: Database) -> None:
 def update_3215(dbo: Database) -> None:
     # Rename DisplayLocationString column to just DisplayLocation and ditch DisplayLocationName - it should be calculated
     try:
-        dbo.execute_dbupdate("ALTER TABLE animal ADD DisplayLocation %s" % dbo.type_shorttext)
+        add_column(dbo, "animal", "DisplayLocation", dbo.type_shorttext)
     except:
         asm3.al.error("failed creating animal.DisplayLocation.", "dbupdate.update_3215", dbo)
     try:
@@ -3738,8 +3810,8 @@ def update_3215(dbo: Database) -> None:
     except:
         asm3.al.error("failed copying DisplayLocationString->DisplayLocation", "dbupdate.update_3215", dbo)
     try:
-        dbo.execute_dbupdate("ALTER TABLE animal DROP COLUMN DisplayLocationName")
-        dbo.execute_dbupdate("ALTER TABLE animal DROP COLUMN DisplayLocationString")
+        drop_column(dbo, "animal", "DisplayLocationName")
+        drop_column(dbo, "animal", "DisplayLocationString")
     except:
         asm3.al.error("failed removing DisplayLocationName and DisplayLocationString", "dbupdate.update_3215", dbo)
 
@@ -3976,7 +4048,7 @@ def update_33011(dbo: Database) -> None:
         "PaymentDescription %(long)s ) " % { "short": dbo.type_shorttext, "long": dbo.type_longtext }
     dbo.execute_dbupdate(sql)
     dbo.execute_dbupdate("INSERT INTO donationpayment (ID, PaymentName) VALUES (1, '" + _("Cash", l) + "')")
-    dbo.execute_dbupdate("INSERT INTO donationpayment (ID, PaymentName) VALUES (2, '" + _("Cheque", l) + "')")
+    dbo.execute_dbupdate("INSERT INTO donationpayment (ID, PaymentName) VALUES (2, '" + _("Check", l) + "')")
     dbo.execute_dbupdate("INSERT INTO donationpayment (ID, PaymentName) VALUES (3, '" + _("Credit Card", l) + "')")
     dbo.execute_dbupdate("INSERT INTO donationpayment (ID, PaymentName) VALUES (4, '" + _("Debit Card", l) + "')")
     # Add donationpaymentid field to donations
@@ -6037,4 +6109,154 @@ def update_34800(dbo: Database) -> None:
         "AND oli.OwnerID = ownerlicence.OwnerID AND oli.AnimalID = ownerlicence.AnimalID AND oli.IssueDate > ownerlicence.IssueDate)")
     # Use MD5 hashes of the ID for old tokens for speed (we use UUIDs for new ones)
     dbo.execute_dbupdate("UPDATE ownerlicence SET Token = %s" % (dbo.sql_md5("ID")))
+
+def update_34801(dbo: Database) -> None:
+    l = dbo.locale
+    # Add animal.EntryTypeID and lksentrytype
+    add_column(dbo, "animal", "EntryTypeID", dbo.type_integer)
+    add_index(dbo, "animal_EntryTypeID", "animal", "EntryTypeID")
+    add_column(dbo, "animalentry", "EntryTypeID", dbo.type_integer)
+    fields = ",".join([
+        dbo.ddl_add_table_column("ID", dbo.type_integer, False, pk=True),
+        dbo.ddl_add_table_column("EntryTypeName", dbo.type_shorttext, False),
+    ])
+    dbo.execute_dbupdate( dbo.ddl_add_table("lksentrytype", fields) )
+    dbo.execute_dbupdate("INSERT INTO lksentrytype VALUES (1, ?)", [ _("Surrender", l) ])
+    dbo.execute_dbupdate("INSERT INTO lksentrytype VALUES (2, ?)", [ _("Stray", l) ])
+    dbo.execute_dbupdate("INSERT INTO lksentrytype VALUES (3, ?)", [ _("Transfer In", l) ])
+    dbo.execute_dbupdate("INSERT INTO lksentrytype VALUES (4, ?)", [ _("TNR", l) ])
+    dbo.execute_dbupdate("INSERT INTO lksentrytype VALUES (5, ?)", [ _("Born in care", l) ])
+    dbo.execute_dbupdate("INSERT INTO lksentrytype VALUES (6, ?)", [ _("Wildlife", l) ])
+    dbo.execute_dbupdate("INSERT INTO lksentrytype VALUES (7, ?)", [ _("Seized", l) ])
+    dbo.execute_dbupdate("INSERT INTO lksentrytype VALUES (8, ?)", [ _("Abandoned", l) ])
+    # Set the default value for animal.EntryTypeID based on existing data
+    strayid = dbo.query_int("SELECT ID FROM entryreason WHERE LOWER(ReasonName) LIKE '%stray%'")
+    tnrid = dbo.query_int("SELECT ID FROM entryreason WHERE LOWER(ReasonName) LIKE '%tnr%'")
+    dbo.execute_dbupdate("UPDATE animal SET EntryTypeID = 0")
+    dbo.execute_dbupdate("UPDATE animalentry SET EntryTypeID = 0")
+    dbo.execute_dbupdate("UPDATE animal SET EntryTypeID=3 WHERE IsTransfer=1")
+    dbo.execute_dbupdate("UPDATE animal SET EntryTypeID=7 WHERE CrueltyCase=1")
+    if strayid > 0: dbo.execute_dbupdate("UPDATE animal SET EntryTypeID=2 WHERE EntryReasonID=%s AND NonShelterAnimal=0 AND EntryTypeID=0" % strayid)
+    if tnrid > 0: dbo.execute_dbupdate("UPDATE animal SET EntryTypeID=4 WHERE EntryReasonID=%s AND NonShelterAnimal=0 AND EntryTypeID=0" % tnrid)
+    dbo.execute_dbupdate("UPDATE animal SET EntryTypeID=5 WHERE DateBroughtIn=DateOfBirth AND NonShelterAnimal=0 AND EntryTypeID=0")
+    dbo.execute_dbupdate("UPDATE animal SET EntryTypeID=1 WHERE NonShelterAnimal=0 AND EntryTypeID=0")
+
+def update_34802(dbo: Database) -> None:
+    # Switching to use primarykey/cache combo for receipt numbers and online forms, and
+    # possibly for future PK depending on performance. Clear any old junk out.
+    dbo.execute_dbupdate("DELETE FROM primarykey")
+
+def update_34803(dbo: Database) -> None:
+    # Add animallocation table
+    fields = ",".join([
+        dbo.ddl_add_table_column("ID", dbo.type_integer, False, pk=True),
+        dbo.ddl_add_table_column("AnimalID", dbo.type_integer, False),
+        dbo.ddl_add_table_column("Date", dbo.type_datetime, False),
+        dbo.ddl_add_table_column("FromLocationID", dbo.type_integer, False),
+        dbo.ddl_add_table_column("FromUnit", dbo.type_shorttext, False),
+        dbo.ddl_add_table_column("ToLocationID", dbo.type_integer, False),
+        dbo.ddl_add_table_column("ToUnit", dbo.type_shorttext, False),
+        dbo.ddl_add_table_column("By", dbo.type_shorttext, False),
+        dbo.ddl_add_table_column("Description", dbo.type_shorttext, False)
+    ])
+    dbo.execute_dbupdate( dbo.ddl_add_table("animallocation", fields) )
+    add_index(dbo, "animallocation_AnimalID", "animallocation", "AnimalID") 
+    add_index(dbo, "animallocation_FromLocationID", "animallocation", "FromLocationID") 
+    add_index(dbo, "animallocation_ToLocationID", "animallocation", "ToLocationID") 
+
+def update_34804(dbo: Database) -> None:
+    l = dbo.locale
+    # add adoption coordinator as additional field types
+    dbo.execute_dbupdate("INSERT INTO lksfieldtype (ID, FieldType) VALUES (13, '" + _("Adoption Coordinator", l) + "')")
+
+def update_34805(dbo: Database) -> None:
+    l = dbo.locale
+    # add DOA entry type
+    dbo.execute_dbupdate("INSERT INTO lksentrytype (ID, EntryTypeName) VALUES (9, '" + _("Dead on arrival", l) + "')")
+
+def update_34806(dbo: Database) -> None:
+    # Add IncidentCode column
+    add_column(dbo, "animalcontrol", "IncidentCode", dbo.type_shorttext)
+    add_index(dbo, "animalcontrol_IncidentCode", "animalcontrol", "IncidentCode")
+    batch = []
+    for r in dbo.query("SELECT ID FROM animalcontrol"):
+        batch.append([ asm3.utils.padleft(r.ID, 6), r.ID ])
+    dbo.execute_many("UPDATE animalcontrol SET IncidentCode = ? WHERE ID = ?", batch, override_lock=True) 
+
+def update_34807(dbo: Database) -> None:
+    # Add IsRetired to animal and person flags
+    add_column(dbo, "lkanimalflags", "IsRetired", dbo.type_integer)
+    add_column(dbo, "lkownerflags", "IsRetired", dbo.type_integer)
+    dbo.execute_dbupdate("UPDATE lkanimalflags SET IsRetired=0")
+    dbo.execute_dbupdate("UPDATE lkownerflags SET IsRetired=0")
+
+def update_34808(dbo: Database) -> None:
+    l = dbo.locale
+    # Add clinictype table and field to clinicappointment
+    add_column(dbo, "clinicappointment", "ClinicTypeID", dbo.type_integer)
+    add_index(dbo, "clinicappointment_ClinicTypeID", "clinicappointment", "ClinicTypeID")
+    dbo.execute_dbupdate("UPDATE clinicappointment SET ClinicTypeID=1")
+    fields = ",".join([
+        dbo.ddl_add_table_column("ID", dbo.type_integer, False, pk=True),
+        dbo.ddl_add_table_column("ClinicTypeName", dbo.type_shorttext, False),
+        dbo.ddl_add_table_column("ClinicTypeDescription", dbo.type_shorttext, True),
+        dbo.ddl_add_table_column("IsRetired", dbo.type_integer, True)
+    ])
+    dbo.execute_dbupdate( dbo.ddl_add_table("lkclinictype", fields) )
+    dbo.execute_dbupdate("INSERT INTO lkclinictype VALUES (1, ?, '', 0)", [ _("Consultation", l) ])
+    dbo.execute_dbupdate("INSERT INTO lkclinictype VALUES (2, ?, '', 0)", [ _("Followup", l) ])
+    dbo.execute_dbupdate("INSERT INTO lkclinictype VALUES (3, ?, '', 0)", [ _("Prescription", l) ])
+    dbo.execute_dbupdate("INSERT INTO lkclinictype VALUES (4, ?, '', 0)", [ _("Surgery", l) ])
+
+def update_34809(dbo: Database) -> None:
+    # Add ownerlicence.PaymentReference
+    add_column(dbo, "ownerlicence", "PaymentReference", dbo.type_shorttext)
+    add_index(dbo, "ownerlicence_PaymentReference", "ownerlicence", "PaymentReference") 
+    dbo.execute_dbupdate("UPDATE ownerlicence SET PaymentReference = ''")
+
+def update_34810(dbo: Database) -> None:
+    l = dbo.locale
+    # Add entry type for owner requested euth and set it from the old field
+    dbo.execute_dbupdate("INSERT INTO lksentrytype VALUES (10, ?)", [ _("Owner requested euthanasia", l) ])
+    dbo.execute_dbupdate("UPDATE animal SET EntryTypeID=10 WHERE AsilomarOwnerRequestedEuthanasia=1")
+
+def update_34811(dbo: Database) -> None:
+    l = dbo.locale
+    # Add new fields to animalwaitinglist
+    add_column(dbo, "animalwaitinglist", "BreedID", dbo.type_integer)
+    add_column(dbo, "animalwaitinglist", "DateOfBirth", dbo.type_datetime)
+    add_column(dbo, "animalwaitinglist", "Sex", dbo.type_integer)
+    add_column(dbo, "animalwaitinglist", "Neutered", dbo.type_integer)
+    add_column(dbo, "animalwaitinglist", "MicrochipNumber", dbo.type_shorttext)
+    add_column(dbo, "animalwaitinglist", "AnimalName", dbo.type_shorttext)
+    add_column(dbo, "animalwaitinglist", "WaitingListRemovalID", dbo.type_integer)
+    add_index(dbo, "animalwaitinglist_AnimalName", "animalwaitinglist", "AnimalName")
+    add_index(dbo, "animalwaitinglist_MicrochipNumber", "animalwaitinglist", "MicrochipNumber")
+    dbo.execute_dbupdate("UPDATE animalwaitinglist SET BreedID=0, Sex=2, Neutered=0, MicrochipNumber='', AnimalName='', WaitingListRemovalID=0")
+    fields = ",".join([
+        dbo.ddl_add_table_column("ID", dbo.type_integer, False, pk=True),
+        dbo.ddl_add_table_column("RemovalName", dbo.type_shorttext, False),
+    ])
+    dbo.execute_dbupdate( dbo.ddl_add_table("lkwaitinglistremoval", fields) )
+    dbo.execute_dbupdate("INSERT INTO lkwaitinglistremoval VALUES (1, ?)", [ _("Entered shelter", l) ])
+    dbo.execute_dbupdate("INSERT INTO lkwaitinglistremoval VALUES (2, ?)", [ _("Owner kept", l) ])
+    dbo.execute_dbupdate("INSERT INTO lkwaitinglistremoval VALUES (3, ?)", [ _("Owner took to another shelter", l) ])
+    dbo.execute_dbupdate("INSERT INTO lkwaitinglistremoval VALUES (4, ?)", [ _("Unknown", l) ])
+
+def update_34812(dbo: Database) -> None:
+    # Add ownervoucher.VetID
+    add_column(dbo, "ownervoucher", "VetID", dbo.type_integer)
+    add_index(dbo, "ownervoucher_VetID", "ownervoucher", "VetID")
+
+def update_34813(dbo: Database) -> None:
+    # rename animallocation.By to animallocation.MovedBy (By is a MySQL reserved word)
+    add_column(dbo, "animallocation", "MovedBy", dbo.type_shorttext)
+    dbo.execute_dbupdate("UPDATE animallocation SET MovedBy=By")
+    drop_column(dbo, "animallocation", "By")
+
+def update_34900(dbo: Database) -> None:
+    # ClinicTypeDescription was mispelled in the create code above (but not the update for existing databases) 
+    # as ClinicTypeDescripton - fix this.
+    add_column(dbo, "lkclinictype", "ClinicTypeDescription", dbo.type_longtext)
+    drop_column(dbo, "lkclinictype", "ClinicTypeDescripton")
 

@@ -10,7 +10,7 @@ import datetime
 import sys
 import time
 
-from asm3.sitedefs import DB_TYPE, DB_HOST, DB_PORT, DB_USERNAME, DB_PASSWORD, DB_NAME, DB_HAS_ASM2_PK_TABLE, DB_EXEC_LOG, DB_EXPLAIN_QUERIES, DB_TIME_QUERIES, DB_TIME_LOG_OVER, DB_TIMEOUT, CACHE_COMMON_QUERIES
+from asm3.sitedefs import DB_TYPE, DB_HOST, DB_PORT, DB_USERNAME, DB_PASSWORD, DB_NAME, DB_EXEC_LOG, DB_EXPLAIN_QUERIES, DB_TIME_QUERIES, DB_TIME_LOG_OVER, DB_TIMEOUT, CACHE_COMMON_QUERIES
 from asm3.typehints import Any, Dict, Generator, List, Tuple
 
 class ResultRow(dict):
@@ -121,7 +121,6 @@ class Database(object):
     installpath = ""
     locked = False
 
-    has_asm2_pk_table = DB_HAS_ASM2_PK_TABLE
     is_large_db = False
     timeout = DB_TIMEOUT
     connection = None
@@ -309,6 +308,13 @@ class Database(object):
             except:
                 pass
 
+    def execute_named_params(self, sql: str, params: Dict) -> int:
+        """
+        Runs an action query with :named :params
+        """
+        sql, values = self._named_params(sql, params)
+        return self.execute(sql, values)
+
     def execute_dbupdate(self, sql: str, params: List = None) -> int:
         """
         Runs an action query for a dbupdate script (sets override_lock
@@ -359,23 +365,44 @@ class Database(object):
 
     def get_id(self, table: str) -> int:
         """ Returns the next ID for a table """
-        nextid = self.get_id_cache(table)
-        self.update_asm2_primarykey(table, nextid)
+        nextid = self.get_id_cache_pk(table)
         asm3.al.debug("get_id: %s -> %d (cache_pk)" % (table, nextid), "Database.get_id", self)
         return nextid
 
-    def get_id_cache(self, table: str) -> int:
-        """ Returns the next ID for a table using an in-memory cache. """
+    def get_id_cache(self, table: str, idcol: str = "ID") -> int:
+        """ Returns the next ID for a table using an in-memory cache, backed by the highest ID in the table (deprecated) """
         cache_key = "%s_pk_%s" % (self.database, table)
         id = asm3.cachemem.increment(cache_key)
         if id is None:
-            id = self.get_id_max(table)
+            id = self.get_id_max(table, idcol)
             asm3.cachemem.put(cache_key, id, 86400)
         return id
+    
+    def get_id_cache_pk(self, table: str, idcol: str = "ID") -> int:
+        """ Returns the next ID for a table using an in-memory cache backed by the primarykey table.
+            Useful for making arbitrary sequences. 
+            Currently used by payment receipt numbers, online form collation IDs) 
+        """
+        cache_key = "%s_pkt_%s" % (self.database, table)
+        id = asm3.cachemem.increment(cache_key)
+        if id is None:
+            id = self.get_id_pk(table)
+            if id == 1: id = self.get_id_max(table, idcol) # no pk entry, use table ID
+            asm3.cachemem.put(cache_key, id, 86400)
+        self.update_primarykey(table, id)
+        return id
 
-    def get_id_max(self, table: str) -> int:
-        """ Returns the next ID for a table using MAX(ID) """
-        return self.query_int("SELECT MAX(ID) FROM %s" % table) + 1
+    def get_id_max(self, table: str, idcol: str = "ID") -> int:
+        """ Returns the next ID for a table using MAX(idfield).
+            If idfield is a query instead of a column name, executes it instead. """
+        if idcol.startswith("SELECT"):
+            return self.query_int(idcol) + 1
+        else:
+            return self.query_int("SELECT MAX(%s) FROM %s" % (idcol, table)) + 1
+    
+    def get_id_pk(self, table: str) -> int:
+        """ Returns the next ID for table from the primarykey table """
+        return self.query_int("SELECT NextID FROM primarykey WHERE TableName = ?", [table]) + 1
 
     def get_query_builder(self) -> Any:
         return QueryBuilder(self)
@@ -492,6 +519,31 @@ class Database(object):
                 sql = sql.replace("%s", self.sql_value(p), 1)
         with open(DB_EXEC_LOG.replace("{database}", self.database), "a", encoding="utf-8") as f:
             f.write("-- %s\n%s;\n" % (self.now(), sql))
+
+    def _named_params(self, sql: str, params: Dict) -> Tuple[str, List]:
+        """ Unpacks :named :params in a query (must terminate with space, comma or right parentheses). 
+            params should be a dict. 
+            Returns the sql query with values replaced by ? and a new list of parameters.
+        """
+        def lowest(*args):
+            r = 99999
+            for z in args:
+                if z != -1 and z < r:
+                    r = z
+            return r
+        x = 0
+        values = []
+        while True:
+            if sql[x:x+1] == ":":
+                # Use the next space, comma or ) as separator
+                y = lowest(sql.find(" ", x), sql.find(",", x), sql.find(")", x))
+                pname = sql[x+1:y]
+                sql = sql[0:x] + "?" + sql[y:]
+                values.append(params[pname])
+                x = y
+            x += 1
+            if x >= len(sql): break
+        return (sql, values)
 
     def now(self, timenow: bool = True, offset: int = 0, settime: str = "") -> datetime.datetime:
         """ Returns now as a Python date, adjusted for the database timezone.
@@ -693,28 +745,11 @@ class Database(object):
             except:
                 pass
 
-    def query_named_params(self, sql: str, params: List, age: int = 0) -> List[ResultRow]:
+    def query_named_params(self, sql: str, params: Dict, age: int = 0) -> List[ResultRow]:
         """ Allows use of :named :params in a query (must terminate with space, comma or right parentheses). params should be a dict. 
             if age is not zero, uses query_cache instead.
         """
-        def lowest(*args):
-            r = 99999
-            for z in args:
-                if z != -1 and z < r:
-                    r = z
-            return r
-        x = 0
-        values = []
-        while True:
-            if sql[x:x+1] == ":":
-                # Use the next space, comma or ) as separator
-                y = lowest(sql.find(" ", x), sql.find(",", x), sql.find(")", x))
-                pname = sql[x+1:y]
-                sql = sql[0:x] + "?" + sql[y:]
-                values.append(params[pname])
-                x = y
-            x += 1
-            if x >= len(sql): break
+        sql, values = self._named_params(sql, params)
         if age == 0:
             return self.query(sql, values)
         else:
@@ -972,7 +1007,7 @@ class Database(object):
             return "null"
         elif asm3.utils.is_unicode(v) or asm3.utils.is_str(v):
             return "'%s'" % v.replace("'", "''")
-        elif type(v) == datetime.datetime:
+        elif isinstance(v, (datetime.datetime, datetime.date)):
             return self.sql_date(v)
         else:
             return str(v)
@@ -1001,14 +1036,14 @@ class Database(object):
         """
         return sql.replace("?", "%s")
 
-    def update_asm2_primarykey(self, table: str, nextid: int) -> None:
+    def update_primarykey(self, table: str, nextid: int) -> None:
         """
-        Update the ASM2 primary key table.
+        Update the primary key table.
         """
-        if not self.has_asm2_pk_table: return
         try:
-            self.execute("DELETE FROM primarykey WHERE TableName = ?", [table] )
-            self.execute("INSERT INTO primarykey (TableName, NextID) VALUES (?, ?)", (table, nextid))
+            c = self.execute("UPDATE primarykey SET NextID = ? WHERE TableName = ?", [nextid, table] )
+            if c == 0:
+                self.execute("INSERT INTO primarykey (TableName, NextID) VALUES (?, ?)", (table, nextid))
         except:
             pass
 

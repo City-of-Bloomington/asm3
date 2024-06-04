@@ -74,6 +74,9 @@ class TestPublish(unittest.TestCase):
     def test_get_held_animals(self):
         asm3.publishers.html.get_held_animals(base.get_dbo())
 
+    def test_get_stray_animals(self):
+        asm3.publishers.html.get_stray_animals(base.get_dbo())
+
     def test_get_animal_view(self):
         self.assertNotEqual(0, len(asm3.publishers.html.get_animal_view(base.get_dbo(), self.nid)))
 
@@ -146,6 +149,9 @@ class TestPublish(unittest.TestCase):
         pc = asm3.publishers.base.PublishCriteria()
         a = asm3.publishers.base.get_animal_data(base.get_dbo())[0]
         pf = asm3.publishers.petfinder.PetFinderPublisher(base.get_dbo(), pc)
+        cikv = asm3.dbms.base.ResultRow()
+        cikv["ID"] = 1
+        pf.pfUpdateCacheInvalidationKeys([cikv])
         self.assertIsNotNone(pf.processAnimal(a))
         b = base.get_dbo().query(pf.pfAnimalQuery())[0]
         self.assertIsNotNone(pf.processAnimal(b, status="X"))

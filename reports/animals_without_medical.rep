@@ -2,13 +2,13 @@ Animals without a medical treatment
 ###
 Auditing
 ###
-Any rev01
+Any rev03
 ###
 Shelter animals who don't have a medical regimen with a particular name
 ###
 en
 ###
-SELECT a.ShelterCode, a.AnimalName,
+SELECT a.ShelterCode, a.AnimalName, a.ID AS AID,
 s.SpeciesName, a.BreedName, a.AnimalAge,
 CASE WHEN a.ActiveMovementID > 0 THEN fo.OwnerName ELSE il.LocationName END AS Location,
 a.DateBroughtIn
@@ -24,6 +24,7 @@ ORDER BY a.AnimalName
 ###
 $$HEADER
 <table border="1">
+<thead>
 <tr>
 <th>Code</th>
 <th>Name</th>
@@ -33,12 +34,14 @@ $$HEADER
 <th>Location</th>
 <th>Entered Shelter</th>
 </tr>
+</thead>
+<tbody>
 HEADER$$
 
 $$BODY
 <tr>
 <td>$SHELTERCODE</td>
-<td>$ANIMALNAME</td>
+<td><a target="_blank" href="animal?id=$AID">$ANIMALNAME</a></td>
 <td>$SPECIESNAME</td>
 <td>$BREEDNAME</td>
 <td>$ANIMALAGE</td>
@@ -48,5 +51,6 @@ $$BODY
 BODY$$
 
 $$FOOTER
+</tbody>
 </table>
 FOOTER$$
