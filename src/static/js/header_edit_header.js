@@ -835,7 +835,7 @@ edit_header = {
                 s.push('<li class="asm-menu-category">' + r.CATEGORY + '</li>');
                 lastcategory = r.CATEGORY;
             }
-            s.push('<li class="asm-menu-item"><a target="_blank" class="templatelink" data="' + r.ID + '" href="/report?id=' + r.ID + '&hascriteria=true&ASK1=' + animalid + '">' + r.TITLE + '</a></li>');
+            s.push('<li class="asm-menu-item"><a target="_blank" class="templatelink" data="' + r.ID + '" href="report?id=' + r.ID + '&hascriteria=true&ASK1=' + animalid + '">' + r.TITLE + '</a></li>');
         });
         s.push('</ul>');
         return s.join("\n");
@@ -850,7 +850,7 @@ edit_header = {
                 s.push('<li class="asm-menu-category">' + r.CATEGORY + '</li>');
                 lastcategory = r.CATEGORY;
             }
-            s.push('<li class="asm-menu-item"><a target="_blank" class="templatelink" data="' + r.ID + '" href="/report?id=' + r.ID + '&hascriteria=true&ASK1=' + personid + '">' + r.TITLE + '</a></li>');
+            s.push('<li class="asm-menu-item"><a target="_blank" class="templatelink" data="' + r.ID + '" href="report?id=' + r.ID + '&hascriteria=true&ASK1=' + personid + '">' + r.TITLE + '</a></li>');
         });
         s.push('</ul>');
         return s.join("\n");
