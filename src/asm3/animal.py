@@ -6700,9 +6700,10 @@ def update_animal_figures_annual(dbo: Database, year: int = 0) -> str:
         species_line("SELECT a.DateBroughtIn AS TheDate, a.DateOfBirth AS DOB, " \
             "COUNT(a.ID) AS Total FROM animal a WHERE " \
             "a.SpeciesID = %d AND a.DateBroughtIn >= %s AND a.DateBroughtIn <= %s " \
-            "AND EXISTS(SELECT ID FROM animalvaccination WHERE AnimalID=a.ID AND DateOfVaccination Is Not Null) " \
+            "AND EXISTS(SELECT ID FROM animalvaccination WHERE AnimalID=a.ID AND DateOfVaccination Is Not Null " \
+            "AND DateOfVaccination >= %s AND DateOfVaccination <= %s) " \
             "AND a.NonShelterAnimal = 0 " \
-            "GROUP BY a.DateBroughtIn, a.DateOfBirth" % (int(sp["ID"]), firstofyear, lastofyear),
+            "GROUP BY a.DateBroughtIn, a.DateOfBirth" % (int(sp["ID"]), firstofyear, lastofyear, firstofyear, lastofyear),
             sp["ID"], sp["SPECIESNAME"], "SP_VACCSA", group, 200, showbabies, babymonths)
 
     group = _("Vaccinated Non-Shelter Animals In {0}", l).format(year)
@@ -6710,9 +6711,10 @@ def update_animal_figures_annual(dbo: Database, year: int = 0) -> str:
         species_line("SELECT a.DateBroughtIn AS TheDate, a.DateOfBirth AS DOB, " \
             "COUNT(a.ID) AS Total FROM animal a WHERE " \
             "a.SpeciesID = %d AND a.DateBroughtIn >= %s AND a.DateBroughtIn <= %s " \
-            "AND EXISTS(SELECT ID FROM animalvaccination WHERE AnimalID=a.ID AND DateOfVaccination Is Not Null) " \
+            "AND EXISTS(SELECT ID FROM animalvaccination WHERE AnimalID=a.ID AND DateOfVaccination Is Not Null " \
+            "AND DateOfVaccination >= %s AND DateOfVaccination <= %s) " \
             "AND a.NonShelterAnimal = 1 " \
-            "GROUP BY a.DateBroughtIn, a.DateOfBirth" % (int(sp["ID"]), firstofyear, lastofyear),
+            "GROUP BY a.DateBroughtIn, a.DateOfBirth" % (int(sp["ID"]), firstofyear, lastofyear, firstofyear, lastofyear),
             sp["ID"], sp["SPECIESNAME"], "SP_VACCNS", group, 210, showbabies, babymonths)
 
     asm3.asynctask.set_progress_value(dbo, 1)
@@ -6937,9 +6939,10 @@ def update_animal_figures_annual(dbo: Database, year: int = 0) -> str:
         type_line("SELECT a.DateBroughtIn AS TheDate, a.DateOfBirth AS DOB, " \
             "COUNT(a.ID) AS Total FROM animal a WHERE " \
             "a.AnimalTypeID = %d AND a.DateBroughtIn >= %s AND a.DateBroughtIn <= %s " \
-            "AND EXISTS(SELECT ID FROM animalvaccination WHERE AnimalID=a.ID AND DateOfVaccination Is Not Null) " \
+            "AND EXISTS(SELECT ID FROM animalvaccination WHERE AnimalID=a.ID AND DateOfVaccination Is Not Null " \
+            "AND DateOfVaccination >= %s AND DateOfVaccination <= %s) " \
             "AND a.NonShelterAnimal = 0 " \
-            "GROUP BY a.DateBroughtIn, a.DateOfBirth" % (int(at["ID"]), firstofyear, lastofyear),
+            "GROUP BY a.DateBroughtIn, a.DateOfBirth" % (int(at["ID"]), firstofyear, lastofyear, firstofyear, lastofyear),
             at["ID"], at["ANIMALTYPE"], "AT_VACCSA", group, 200, at["SHOWSPLIT"], babymonths)
 
     group = _("Vaccinated Non-Shelter Animals In {0}", l).format(year)
@@ -6947,9 +6950,10 @@ def update_animal_figures_annual(dbo: Database, year: int = 0) -> str:
         type_line("SELECT a.DateBroughtIn AS TheDate, a.DateOfBirth AS DOB, " \
             "COUNT(a.ID) AS Total FROM animal a WHERE " \
             "a.AnimalTypeID = %d AND a.DateBroughtIn >= %s AND a.DateBroughtIn <= %s " \
-            "AND EXISTS(SELECT ID FROM animalvaccination WHERE AnimalID=a.ID AND DateOfVaccination Is Not Null) " \
+            "AND EXISTS(SELECT ID FROM animalvaccination WHERE AnimalID=a.ID AND DateOfVaccination Is Not Null " \
+            "AND DateOfVaccination >= %s AND DateOfVaccination <= %s) " \
             "AND a.NonShelterAnimal = 1 " \
-            "GROUP BY a.DateBroughtIn, a.DateOfBirth" % (int(at["ID"]), firstofyear, lastofyear),
+            "GROUP BY a.DateBroughtIn, a.DateOfBirth" % (int(at["ID"]), firstofyear, lastofyear, firstofyear, lastofyear),
             at["ID"], at["ANIMALTYPE"], "AT_VACCNS", group, 210, at["SHOWSPLIT"], babymonths)
 
     asm3.asynctask.set_progress_value(dbo, 2)
