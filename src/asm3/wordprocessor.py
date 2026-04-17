@@ -852,7 +852,7 @@ def animal_tags(dbo: Database, a: ResultRow, includeAdditional=True, includeCost
         medicaltypes = asm3.medical.get_medical_types_animal(dbo, a["ID"])
         tags["ANIMALMEDICALTYPES"] = html_table(l, medicaltypes, (
             ( "MEDICALTYPENAME", _("Medical Type", l) ),
-            ( "DATEREQUIRED", _("Next due", l) ),
+            ( "DATEREQUIRED", _("Next Due", l) ),
             ( "DATEGIVEN", _("Last Given", l) )
         ))
 
@@ -860,7 +860,9 @@ def animal_tags(dbo: Database, a: ResultRow, includeAdditional=True, includeCost
             tagname = "MEDICALTYPE" + mt["MEDICALTYPENAME"].replace(" ", "").replace("/", "").upper()
             tags[tagname] = mt["MEDICALTYPENAME"].upper()
             tags[tagname + "GIVEN"] = python2display(l, mt["DATEGIVEN"])
+            tags[tagname + "GIVENNAME"] = mt["DATEGIVENTREATMENTNAME"]
             tags[tagname + "DUE"] = python2display(l, mt["DATEREQUIRED"])
+            tags[tagname + "DUENAME"] = mt["DATEREQUIREDTREATMENTNAME"]
         
         # Conditions
         d = {
