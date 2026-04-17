@@ -66,7 +66,7 @@ $(function() {
                             if (row.ID > 0) {
                                 return tableform.table_render_edit_link(row.ID, v);
                             } else {
-                                return v    
+                                return v;
                             }
                         }
                     },
