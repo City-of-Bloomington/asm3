@@ -6837,7 +6837,7 @@ def update_animal_figures_annual(dbo: Database, year: int = 0) -> str:
         type_line("SELECT ad.MovementDate AS TheDate, a.DateOfBirth AS DOB, " \
             "COUNT(ad.ID) AS Total FROM animal a INNER JOIN adoption ad ON ad.AnimalID = a.ID WHERE " \
             "a.AnimalTypeID = %d AND ad.MovementDate >= %s AND ad.MovementDate <= %s " \
-            "AND a.IsTransfer = 0 AND a.NonShelterAnimal = 0 AND ad.MovementType = %d " \
+            "AND a.NonShelterAnimal = 0 AND ad.MovementType = %d " \
             "GROUP BY ad.MovementDate, a.DateOfBirth" % (int(at["ID"]), firstofyear, lastofyear, asm3.movement.RECLAIMED),
             at["ID"], at["ANIMALTYPE"], "AT_RECLAIMED", group, 90, at["SHOWSPLIT"], babymonths)
 
