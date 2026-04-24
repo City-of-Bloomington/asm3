@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: ASM3\n"
 "Report-Msgid-Bugs-To: robin@sheltermanager.com\n"
-"POT-Creation-Date: 2026-03-30 13:33+0000\n"
+"POT-Creation-Date: 2026-04-24 09:37+0000\n"
 "Last-Translator: Robin Rawson-Tetley <robin@sheltermanager.com>\n"
 "Language-Team: en <robin@sheltermanager.com>\n"
 "Language: en\n"
@@ -10177,7 +10177,7 @@ msgid "Next"
 msgstr ""
 
 #: wordprocessor.py
-msgid "Next due"
+msgid "Next Due"
 msgstr ""
 
 #: main.py i18n.py wordprocessor.py onlineform.py dbupdate.py lookups.js
@@ -16696,7 +16696,7 @@ msgid "Vaccination Book"
 msgstr ""
 
 #: automail.py
-msgid "Vaccination Followup"
+msgid "Vaccination Reminder"
 msgstr ""
 
 #: options.js
