@@ -680,10 +680,10 @@ def get_onlineformincoming_animalperson(dbo: Database, collationid: int) -> Tupl
     lastname = ""
     for r in dbo.query("SELECT FieldName, Value FROM onlineformincoming WHERE CollationID = ?", [collationid]):
         f = r.FIELDNAME.lower()
-        if f.startswith("firstname"): firstname = r.VALUE
-        if f.startswith("forenames"): firstname = r.VALUE
-        if f.startswith("lastname"): lastname = r.VALUE
-        if f.startswith("surname"): lastname = r.VALUE
+        if f == "firstname": firstname = r.VALUE
+        if f == "forenames": firstname = r.VALUE
+        if f == "lastname": lastname = r.VALUE
+        if f == "surname": lastname = r.VALUE
         if f.startswith("animalname"): animalname = r.VALUE
         if f.startswith("reserveanimalname"): animalname = r.VALUE
     return (animalname, firstname, lastname)
