@@ -953,10 +953,11 @@ def get_animal_movement_status_query(dbo: Database) -> str:
         "LEFT OUTER JOIN owner o ON m.OwnerID = o.ID "
 
 def get_animal_emblem_query(dbo: Database) ->str:
-    """ These are the fields that other queries can include when they want animal data with working emblems """
+    """ These are the fields that other queries can include when they want animal data with working emblems.
+        NOTE: RabiesTag is aliased as AnimalRabiesTag so that it doesn't override the column in animalvaccination """
     return "a.ShelterCode, a.ShortCode, a.AnimalAge, a.DateOfBirth, a.AgeGroup, a.Fee, " \
         "a.AnimalName, a.BreedName, a.Sex, a.Neutered, a.DeceasedDate, a.SpeciesID, a.HasActiveReserve, " \
-        "a.HasTrialAdoption, a.RabiesTag, a.IsHold, a.IsQuarantine, a.HoldUntilDate, a.CrueltyCase, a.NonShelterAnimal, " \
+        "a.HasTrialAdoption, a.RabiesTag AS AnimalRabiesTag, a.IsHold, a.IsQuarantine, a.HoldUntilDate, a.CrueltyCase, a.NonShelterAnimal, " \
         "a.ShelterLocation, a.ShelterLocationUnit, a.DisplayLocation, a.Adoptable, a.HasSpecialNeeds, " \
         "a.ActiveMovementID, a.ActiveMovementType, a.Archived, a.DaysOnShelter, a.IsNotAvailableForAdoption, " \
         "a.AdditionalFlags AS AnimalFlags, " \
